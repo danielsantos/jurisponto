@@ -1,0 +1,18 @@
+services:
+  db:
+    image: mysql:8.4
+    container_name: jurisponto-db
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: jurisponto
+      MYSQL_USER: jurisponto
+      MYSQL_PASSWORD: jurisponto_dev
+      MYSQL_ROOT_PASSWORD: altere_a_senha_root_local
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./db/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+
+volumes:
+  mysql_data:

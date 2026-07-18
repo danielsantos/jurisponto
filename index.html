@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#17263d" />
+    <title>JurisPonto — organização jurídica simples</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <a class="brand" href="#" aria-label="JurisPonto início"><span class="brand-mark">J</span><span>Juris<span>Ponto</span></span></a>
+        <div class="office"><span class="avatar">MC</span><div><strong>Monteiro &amp; Costa</strong><small>Escritório de advocacia</small></div><button class="dots" aria-label="Opções">•••</button></div>
+        <nav aria-label="Navegação principal">
+          <button class="nav-link active" data-view="dashboard"><span>▦</span> Visão geral</button>
+          <button class="nav-link" data-view="cases"><span>▤</span> Casos</button>
+          <button class="nav-link" data-view="clients"><span>♙</span> Clientes</button>
+          <button class="nav-link" data-view="documents"><span>▱</span> Documentos <b>4</b></button>
+          <button class="nav-link" data-view="updates"><span>◌</span> Atualizações</button>
+        </nav>
+        <div class="sidebar-bottom"><button class="nav-link" data-view="settings"><span>⚙</span> Configurações</button><div class="help-card"><span>✦</span><div><strong>Precisa de ajuda?</strong><small>Veja como organizar seu escritório.</small><a href="#">Ver guia →</a></div></div><button class="user"><span class="avatar avatar-user">AS</span><span><strong>Ana Souza</strong><small>Administradora</small></span><span>⌄</span></button></div>
+      </aside>
+
+      <main>
+        <header class="topbar"><button class="mobile-menu" aria-label="Abrir menu">☰</button><div class="breadcrumb"><span>Escritório</span><i>/</i><strong id="page-title">Visão geral</strong></div><div class="top-actions"><button class="icon-button" aria-label="Pesquisar">⌕</button><button class="icon-button notification" aria-label="Notificações">♧</button><button class="new-case" id="new-case">＋ Novo caso</button></div></header>
+
+        <section id="dashboard-view" class="view active-view">
+          <div class="hero"><div><p class="eyebrow">SEXTA-FEIRA, 18 DE JULHO</p><h1>Bom dia, Ana <span>✦</span></h1><p class="subcopy">Você tem <strong>3 pendências importantes</strong> para acompanhar hoje.</p></div><button class="secondary-button" id="share-portal">↗ Compartilhar portal</button></div>
+          <div class="metrics"><article><div class="metric-icon navy">▤</div><div><small>Casos ativos</small><strong id="active-cases">12</strong><span class="up">↑ 2 este mês</span></div></article><article><div class="metric-icon amber">▱</div><div><small>Documentos pendentes</small><strong id="pending-documents">8</strong><span class="attention">● Requer atenção</span></div></article><article><div class="metric-icon green">◷</div><div><small>Prazo mais próximo</small><strong>22 jul</strong><span>Em 4 dias</span></div></article><article><div class="metric-icon lavender">✓</div><div><small>Taxa de conclusão</small><strong>76%</strong><span class="up">↑ 8% este mês</span></div></article></div>
+          <div class="dashboard-grid"><section class="panel pending-panel"><div class="panel-heading"><div><h2>Documentos pendentes</h2><p>Itens aguardando envio dos clientes.</p></div><button class="text-button" data-view-target="documents">Ver todos →</button></div><div id="pending-list" class="pending-list"></div></section><section class="panel activity-panel"><div class="panel-heading"><div><h2>Atividade recente</h2><p>O que aconteceu no escritório.</p></div><button class="text-button">Ver histórico →</button></div><div class="timeline"><div><span class="timeline-dot amber-dot">↑</span><p><strong>Mariana Almeida</strong> enviou um documento<span>Comprovante de residência · há 12 min</span></p></div><div><span class="timeline-dot navy-dot">✓</span><p>Você concluiu a tarefa <strong>Revisar contrato</strong><span>CASO #024 · há 1 hora</span></p></div><div><span class="timeline-dot green-dot">◌</span><p>Atualização enviada para <strong>Ricardo Lima</strong><span>CASO #019 · há 3 horas</span></p><button class="tiny-avatar">RL</button></div><div><span class="timeline-dot lavender-dot">＋</span><p>Novo caso criado: <strong>Silva x Horizonte</strong><span>há 5 horas</span></p></div></div></section></div>
+          <section class="panel cases-preview"><div class="panel-heading"><div><h2>Seus casos</h2><p>Visão rápida dos casos em andamento.</p></div><button class="text-button" data-view-target="cases">Ver todos os casos →</button></div><div class="table-wrap"><table><thead><tr><th>CLIENTE</th><th>CASO</th><th>STATUS</th><th>DOCUMENTOS</th><th>PRÓXIMO PRAZO</th><th></th></tr></thead><tbody id="cases-table"></tbody></table></div></section>
+        </section>
+
+        <section id="cases-view" class="view"><div class="content-title"><div><p class="eyebrow">GESTÃO DE CASOS</p><h1>Casos em andamento</h1><p class="subcopy">Acompanhe documentos, responsáveis e próximos passos.</p></div><button class="new-case" id="new-case-secondary">＋ Novo caso</button></div><section class="panel cases-full"><div class="filter-row"><button class="filter selected">Todos <span>12</span></button><button class="filter">Aguardando cliente <span>5</span></button><button class="filter">Em análise <span>4</span></button><button class="filter">Concluídos <span>3</span></button><label class="search"><span>⌕</span><input id="case-search" placeholder="Buscar caso ou cliente" /></label></div><div class="table-wrap"><table><thead><tr><th>CLIENTE</th><th>CASO</th><th>STATUS</th><th>DOCUMENTOS</th><th>PRÓXIMO PRAZO</th><th></th></tr></thead><tbody id="all-cases-table"></tbody></table></div></section></section>
+
+        <section id="documents-view" class="view"><div class="content-title"><div><p class="eyebrow">CENTRAL DE DOCUMENTOS</p><h1>Documentos pendentes</h1><p class="subcopy">Envie lembretes e mantenha cada caso completo.</p></div><button class="new-case" id="request-document">＋ Solicitar documento</button></div><section class="panel document-center"><div id="documents-list" class="document-list"></div></section></section>
+        <section id="clients-view" class="view empty-view"><span class="empty-icon">♙</span><h1>Seus clientes</h1><p>A área de clientes estará disponível aqui. Por enquanto, acesse-os pelos casos.</p><button class="new-case" data-view-target="cases">Ver casos</button></section>
+        <section id="updates-view" class="view empty-view"><span class="empty-icon">◌</span><h1>Atualizações para clientes</h1><p>Envie mensagens simples e claras sobre cada etapa do caso.</p><button class="new-case" id="create-update">＋ Nova atualização</button></section>
+        <section id="settings-view" class="view empty-view"><span class="empty-icon">⚙</span><h1>Configurações</h1><p>Personalize o escritório, membros da equipe e notificações.</p></section>
+      </main>
+    </div>
+    <div class="modal-backdrop" id="modal-backdrop" hidden><div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title"><button class="close-modal" aria-label="Fechar">×</button><p class="eyebrow">NOVO CASO</p><h2 id="modal-title">Comece um novo acompanhamento</h2><p>Crie o caso e envie uma checklist ao cliente em seguida.</p><form id="case-form"><label>Nome do cliente<input required name="client" placeholder="Ex.: Juliana Ferreira" /></label><label>Título do caso<input required name="title" placeholder="Ex.: Revisão de contrato" /></label><label>Próximo prazo<input required name="due" type="date" /></label><button class="new-case" type="submit">Criar caso →</button></form></div></div>
+    <div class="toast" id="toast" role="status"></div>
+    <script src="app.js"></script>
+  </body>
+</html>
