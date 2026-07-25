@@ -5,11 +5,17 @@
   "description": "Portal de organização de casos e documentos para escritórios jurídicos.",
   "scripts": {
     "start": "node server.js",
-    "dev": "node --watch server.js"
+    "dev": "node --watch server.js",
+    "test": "node --test",
+    "migrate": "node migrate.js",
+    "seed": "node seed.js",
+    "seed:demo": "node seed.js demo"
   },
   "dependencies": {
+    "bcryptjs": "^2.4.3",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
+    "multer": "^2.0.2",
     "mysql2": "^3.12.0"
   }
 }

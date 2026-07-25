@@ -4,46 +4,366 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#17263d" />
-    <title>JurisPonto — organização jurídica simples</title>
+    <title>JurisPonto - organizacao juridica simples</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <div class="app-shell">
+    <div class="app-shell" id="app-shell">
       <aside class="sidebar">
-        <a class="brand" href="#" aria-label="JurisPonto início"><span class="brand-mark">J</span><span>Juris<span>Ponto</span></span></a>
-        <div class="office"><span class="avatar">MC</span><div><strong>Monteiro &amp; Costa</strong><small>Escritório de advocacia</small></div><button class="dots" aria-label="Opções">•••</button></div>
-        <nav aria-label="Navegação principal">
-          <button class="nav-link active" data-view="dashboard"><span>▦</span> Visão geral</button>
-          <button class="nav-link" data-view="cases"><span>▤</span> Casos</button>
-          <button class="nav-link" data-view="clients"><span>♙</span> Clientes</button>
-          <button class="nav-link" data-view="documents"><span>▱</span> Documentos <b>4</b></button>
-          <button class="nav-link" data-view="updates"><span>◌</span> Atualizações</button>
+        <a class="brand" href="#" aria-label="JurisPonto inicio"><span class="brand-mark">J</span><span>Juris<span>Ponto</span></span></a>
+        <div class="office">
+          <span class="avatar" id="office-avatar">JP</span>
+          <div>
+            <strong id="office-name">JurisPonto</strong>
+            <small id="office-subtitle">Escritorio de advocacia</small>
+          </div>
+          <button class="dots" aria-label="Opcoes">...</button>
+        </div>
+        <nav aria-label="Navegacao principal">
+          <button class="nav-link active" data-view="dashboard"><span>[]</span> Visao geral</button>
+          <button class="nav-link" data-view="cases"><span>#</span> Casos</button>
+          <button class="nav-link" data-view="clients"><span>@</span> Clientes</button>
+          <button class="nav-link" data-view="documents"><span>=</span> Documentos <b id="nav-document-count">0</b></button>
+          <button class="nav-link" data-view="updates"><span>+</span> Atualizacoes</button>
         </nav>
-        <div class="sidebar-bottom"><button class="nav-link" data-view="settings"><span>⚙</span> Configurações</button><div class="help-card"><span>✦</span><div><strong>Precisa de ajuda?</strong><small>Veja como organizar seu escritório.</small><a href="#">Ver guia →</a></div></div><button class="user"><span class="avatar avatar-user">AS</span><span><strong>Ana Souza</strong><small>Administradora</small></span><span>⌄</span></button></div>
+        <div class="sidebar-bottom">
+          <button class="nav-link" data-view="settings" id="settings-nav"><span>*</span> Configuracoes</button>
+          <div class="help-card">
+            <span>*</span>
+            <div>
+              <strong>Precisa de ajuda?</strong>
+              <small>Veja como organizar seu escritorio.</small>
+              <a href="#">Ver guia -></a>
+            </div>
+          </div>
+          <button class="user">
+            <span class="avatar avatar-user" id="user-avatar">JP</span>
+            <span><strong id="user-name">JurisPonto</strong><small id="user-role">Perfil</small></span>
+            <span>v</span>
+          </button>
+          <button id="logout-button" class="nav-link logout"><span><-</span> Sair</button>
+        </div>
       </aside>
 
       <main>
-        <header class="topbar"><button class="mobile-menu" aria-label="Abrir menu">☰</button><div class="breadcrumb"><span>Escritório</span><i>/</i><strong id="page-title">Visão geral</strong></div><div class="top-actions"><button class="icon-button" aria-label="Pesquisar">⌕</button><button class="icon-button notification" aria-label="Notificações">♧</button><button class="new-case" id="new-case">＋ Novo caso</button></div></header>
+        <header class="topbar">
+          <button class="mobile-menu" aria-label="Abrir menu">=</button>
+          <div class="breadcrumb"><span>Escritorio</span><i>/</i><strong id="page-title">Visao geral</strong></div>
+          <div class="top-actions">
+            <button class="icon-button" aria-label="Pesquisar">?</button>
+            <button class="icon-button notification" aria-label="Notificacoes">!</button>
+            <button class="new-case" id="new-case">+ Novo caso</button>
+          </div>
+        </header>
 
         <section id="dashboard-view" class="view active-view">
-          <div class="hero"><div><p class="eyebrow">SEXTA-FEIRA, 18 DE JULHO</p><h1>Bom dia, Ana <span>✦</span></h1><p class="subcopy">Você tem <strong>3 pendências importantes</strong> para acompanhar hoje.</p></div><button class="secondary-button" id="share-portal">↗ Compartilhar portal</button></div>
-          <div class="metrics"><article><div class="metric-icon navy">▤</div><div><small>Casos ativos</small><strong id="active-cases">12</strong><span class="up">↑ 2 este mês</span></div></article><article><div class="metric-icon amber">▱</div><div><small>Documentos pendentes</small><strong id="pending-documents">8</strong><span class="attention">● Requer atenção</span></div></article><article><div class="metric-icon green">◷</div><div><small>Prazo mais próximo</small><strong>22 jul</strong><span>Em 4 dias</span></div></article><article><div class="metric-icon lavender">✓</div><div><small>Taxa de conclusão</small><strong>76%</strong><span class="up">↑ 8% este mês</span></div></article></div>
-          <div class="dashboard-grid"><section class="panel pending-panel"><div class="panel-heading"><div><h2>Documentos pendentes</h2><p>Itens aguardando envio dos clientes.</p></div><button class="text-button" data-view-target="documents">Ver todos →</button></div><div id="pending-list" class="pending-list"></div></section><section class="panel activity-panel"><div class="panel-heading"><div><h2>Atividade recente</h2><p>O que aconteceu no escritório.</p></div><button class="text-button">Ver histórico →</button></div><div class="timeline"><div><span class="timeline-dot amber-dot">↑</span><p><strong>Mariana Almeida</strong> enviou um documento<span>Comprovante de residência · há 12 min</span></p></div><div><span class="timeline-dot navy-dot">✓</span><p>Você concluiu a tarefa <strong>Revisar contrato</strong><span>CASO #024 · há 1 hora</span></p></div><div><span class="timeline-dot green-dot">◌</span><p>Atualização enviada para <strong>Ricardo Lima</strong><span>CASO #019 · há 3 horas</span></p><button class="tiny-avatar">RL</button></div><div><span class="timeline-dot lavender-dot">＋</span><p>Novo caso criado: <strong>Silva x Horizonte</strong><span>há 5 horas</span></p></div></div></section></div>
-          <section class="panel cases-preview"><div class="panel-heading"><div><h2>Seus casos</h2><p>Visão rápida dos casos em andamento.</p></div><button class="text-button" data-view-target="cases">Ver todos os casos →</button></div><div class="table-wrap"><table><thead><tr><th>CLIENTE</th><th>CASO</th><th>STATUS</th><th>DOCUMENTOS</th><th>PRÓXIMO PRAZO</th><th></th></tr></thead><tbody id="cases-table"></tbody></table></div></section>
+          <div class="hero">
+            <div>
+              <p class="eyebrow" id="dashboard-eyebrow">PAINEL JURISPONTO</p>
+              <h1 id="dashboard-greeting">Bom dia <span>*</span></h1>
+              <p class="subcopy" id="dashboard-subcopy">Acompanhe seus casos, documentos e proximos passos.</p>
+            </div>
+            <button class="secondary-button" id="share-portal">Compartilhar portal</button>
+          </div>
+          <div class="metrics">
+            <article><div class="metric-icon navy">#</div><div><small>Casos ativos</small><strong id="active-cases">0</strong><span class="up">Atualizado em tempo real</span></div></article>
+            <article><div class="metric-icon amber">=</div><div><small>Documentos pendentes</small><strong id="pending-documents">0</strong><span class="attention">Acompanhe cobrancas e envios</span></div></article>
+            <article><div class="metric-icon green">></div><div><small>Proximo prazo</small><strong id="next-deadline">Sem prazo</strong><span id="next-deadline-note">Crie ou acompanhe casos</span></div></article>
+            <article><div class="metric-icon lavender">%</div><div><small>Taxa de conclusao</small><strong id="completion-rate">0%</strong><span id="completion-rate-note">Baseada nos documentos dos casos</span></div></article>
+          </div>
+          <div class="dashboard-grid">
+            <section class="panel pending-panel">
+              <div class="panel-heading"><div><h2 id="pending-panel-title">Documentos pendentes</h2><p id="pending-panel-copy">Itens aguardando envio dos clientes.</p></div><button class="text-button" data-view-target="documents">Ver todos -></button></div>
+              <div id="pending-list" class="pending-list"></div>
+            </section>
+            <section class="panel activity-panel">
+              <div class="panel-heading"><div><h2>Resumo do acesso</h2><p>Seu perfil dentro do escritorio.</p></div></div>
+              <div class="timeline" id="role-summary">
+                <div><span class="timeline-dot amber-dot">i</span><p><strong>Carregando perfil</strong><span>As permissoes serao exibidas aqui.</span></p></div>
+              </div>
+            </section>
+          </div>
+          <section class="panel client-portal-panel" id="client-portal-panel" hidden>
+            <div class="panel-heading">
+              <div>
+                <h2>Seu espaco no caso</h2>
+                <p>Uma visao simples para acompanhar o que ja chegou e o que ainda depende de voce.</p>
+              </div>
+            </div>
+            <div class="client-portal-grid">
+              <article>
+                <small>Proxima acao</small>
+                <strong id="client-next-action">Estamos organizando seus documentos.</strong>
+                <p id="client-next-action-copy">Quando houver alguma pendencia, ela aparecera aqui.</p>
+              </article>
+              <article>
+                <small>Arquivos enviados</small>
+                <strong id="client-uploaded-count">0 documentos</strong>
+                <p>Voce pode enviar novos arquivos pela area de documentos.</p>
+              </article>
+              <article>
+                <small>Visibilidade</small>
+                <strong>Somente seus casos</strong>
+                <p>Este portal mostra apenas informacoes vinculadas ao seu cadastro.</p>
+              </article>
+              <article>
+                <small>Ultima atualizacao</small>
+                <strong id="client-latest-update-title">Sem atualizacoes recentes</strong>
+                <p id="client-latest-update-copy">Quando a equipe enviar uma nova mensagem simples sobre o caso, ela aparecera aqui.</p>
+              </article>
+            </div>
+          </section>
+          <section class="panel client-history-panel" id="client-history-panel" hidden>
+            <div class="panel-heading"><div><h2>Historico recente</h2><p>Mensagens simples e movimentacoes importantes dos seus documentos.</p></div></div>
+            <div id="client-history-list" class="timeline"></div>
+          </section>
+          <section class="panel cases-preview">
+            <div class="panel-heading"><div><h2>Seus casos</h2><p>Visao rapida dos casos em andamento.</p></div><button class="text-button" data-view-target="cases">Ver todos os casos -></button></div>
+            <div class="table-wrap"><table><thead><tr><th>CLIENTE</th><th>CASO</th><th>STATUS</th><th>RESPONSAVEL</th><th>PROXIMO PRAZO</th><th></th></tr></thead><tbody id="cases-table"></tbody></table></div>
+          </section>
         </section>
 
-        <section id="cases-view" class="view"><div class="content-title"><div><p class="eyebrow">GESTÃO DE CASOS</p><h1>Casos em andamento</h1><p class="subcopy">Acompanhe documentos, responsáveis e próximos passos.</p></div><button class="new-case" id="new-case-secondary">＋ Novo caso</button></div><section class="panel cases-full"><div class="filter-row"><button class="filter selected">Todos <span>12</span></button><button class="filter">Aguardando cliente <span>5</span></button><button class="filter">Em análise <span>4</span></button><button class="filter">Concluídos <span>3</span></button><label class="search"><span>⌕</span><input id="case-search" placeholder="Buscar caso ou cliente" /></label></div><div class="table-wrap"><table><thead><tr><th>CLIENTE</th><th>CASO</th><th>STATUS</th><th>DOCUMENTOS</th><th>PRÓXIMO PRAZO</th><th></th></tr></thead><tbody id="all-cases-table"></tbody></table></div></section></section>
+        <section id="cases-view" class="view">
+          <div class="content-title"><div><p class="eyebrow">GESTAO DE CASOS</p><h1>Casos em andamento</h1><p class="subcopy">Acompanhe documentos, responsaveis e proximos passos.</p></div><button class="new-case" id="new-case-secondary">+ Novo caso</button></div>
+          <section class="panel cases-full"><div class="filter-row"><button class="filter selected" data-filter="all">Todos <span>0</span></button><button class="filter" data-filter="waiting">Aguardando cliente <span>0</span></button><button class="filter" data-filter="review">Em analise <span>0</span></button><button class="filter" data-filter="done">Concluidos <span>0</span></button><label class="search"><span>?</span><input id="case-search" placeholder="Buscar cliente, caso ou documento" /></label><label class="inline-select"><span>Responsavel</span><select id="case-responsible-filter"><option value="">Todos</option></select></label><label class="inline-select"><span>Prazo</span><select id="case-due-filter"><option value="">Todos</option><option value="overdue">Atrasados</option><option value="today">Hoje</option><option value="week">Proximos 7 dias</option><option value="none">Sem prazo</option></select></label><label class="inline-select"><span>Arquivo</span><select id="case-archived-filter"><option value="false">Ativos</option><option value="all">Todos</option><option value="true">Arquivados</option></select></label></div><div class="table-wrap"><table><thead><tr><th>CLIENTE</th><th>CASO</th><th>STATUS</th><th>RESPONSAVEL</th><th>PROXIMO PRAZO</th><th></th></tr></thead><tbody id="all-cases-table"></tbody></table></div></section>
+        </section>
 
-        <section id="documents-view" class="view"><div class="content-title"><div><p class="eyebrow">CENTRAL DE DOCUMENTOS</p><h1>Documentos pendentes</h1><p class="subcopy">Envie lembretes e mantenha cada caso completo.</p></div><button class="new-case" id="request-document">＋ Solicitar documento</button></div><section class="panel document-center"><div id="documents-list" class="document-list"></div></section></section>
-        <section id="clients-view" class="view empty-view"><span class="empty-icon">♙</span><h1>Seus clientes</h1><p>A área de clientes estará disponível aqui. Por enquanto, acesse-os pelos casos.</p><button class="new-case" data-view-target="cases">Ver casos</button></section>
-        <section id="updates-view" class="view empty-view"><span class="empty-icon">◌</span><h1>Atualizações para clientes</h1><p>Envie mensagens simples e claras sobre cada etapa do caso.</p><button class="new-case" id="create-update">＋ Nova atualização</button></section>
-        <section id="settings-view" class="view empty-view"><span class="empty-icon">⚙</span><h1>Configurações</h1><p>Personalize o escritório, membros da equipe e notificações.</p></section>
+        <section id="documents-view" class="view">
+          <div class="content-title"><div><p class="eyebrow" id="documents-eyebrow">CENTRAL DE DOCUMENTOS</p><h1 id="documents-title">Checklist dos casos</h1><p class="subcopy" id="documents-subcopy">Envie lembretes, acompanhe recebimento e reutilize modelos por tipo de atendimento.</p></div><div class="form-actions"><button class="secondary-button" id="manage-templates">Modelos de checklist</button><button class="new-case" id="request-document">+ Solicitar documento</button></div></div>
+          <section class="panel document-center">
+            <div class="filter-row document-filter-row">
+              <label class="search"><span>?</span><input id="document-search" placeholder="Buscar documento, caso, cliente ou modelo" /></label>
+              <label class="inline-select"><span>Caso</span><select id="document-case-filter"><option value="">Todos</option></select></label>
+              <label class="inline-select"><span>Status</span><select id="document-status-filter"><option value="">Todos</option><option value="pending">Pendentes</option><option value="received">Recebidos</option><option value="rejected">Recusados</option></select></label>
+            </div>
+            <div id="documents-list" class="document-list"></div>
+          </section>
+          <section class="panel document-templates-panel">
+            <div class="panel-heading"><div><h2>Modelos de checklist</h2><p>Padronize documentos por tipo de atendimento e aplique em novos casos em segundos.</p></div><button class="new-case" id="new-template">+ Novo modelo</button></div>
+            <div id="document-templates-list" class="document-templates-list"></div>
+          </section>
+        </section>
+
+        <section id="clients-view" class="view">
+          <div class="content-title">
+            <div>
+              <p class="eyebrow">BASE DE CLIENTES</p>
+              <h1>Clientes do escritorio</h1>
+              <p class="subcopy">Cadastre, atualize e encontre rapidamente quem esta em atendimento.</p>
+            </div>
+          </div>
+          <section class="panel settings-panel">
+            <div class="panel-heading"><div><h2>Cadastro de clientes</h2><p>Base operacional para abrir casos, vincular acessos e manter historico.</p></div></div>
+            <p id="client-feedback" class="settings-feedback" hidden></p>
+            <div class="settings-layout">
+              <div>
+                <form id="client-form" class="team-form">
+                  <input type="hidden" name="clientId" />
+                  <label>Nome completo<input required name="name" placeholder="Ex.: Juliana Ferreira" /></label>
+                  <label>E-mail<input name="email" type="email" placeholder="juliana@email.com" /></label>
+                  <label>Telefone<input name="phone" placeholder="(11) 99999-9999" /></label>
+                  <label>CPF/CNPJ ou documento<input name="documentId" placeholder="Ex.: 123.456.789-00" /></label>
+                  <label>Observacoes internas<textarea name="notes" rows="4" placeholder="Informacoes de contexto, preferencia de contato, observacoes relevantes."></textarea></label>
+                  <div class="form-actions">
+                    <button class="new-case" type="submit" id="client-submit">Salvar cliente -></button>
+                    <button class="secondary-button" type="button" id="client-cancel" hidden>Cancelar edicao</button>
+                  </div>
+                </form>
+              </div>
+              <div>
+                <div class="list-toolbar"><label class="search search-inline"><span>?</span><input id="client-search" placeholder="Buscar nome, e-mail, telefone ou documento" /></label></div>
+                <div id="clients-list" class="team-list"></div>
+              </div>
+            </div>
+          </section>
+        </section>
+        <section id="updates-view" class="view">
+          <div class="content-title">
+            <div>
+              <p class="eyebrow">ATUALIZACOES PARA CLIENTES</p>
+              <h1>Mensagens em linguagem simples</h1>
+              <p class="subcopy">Registre atualizacoes claras por caso para aumentar confianca e reduzir retrabalho.</p>
+            </div>
+            <button class="new-case" id="create-update">+ Nova atualizacao</button>
+          </div>
+          <section class="panel settings-panel">
+            <div class="panel-heading"><div><h2>Nova atualizacao</h2><p>Escreva como voce falaria com o cliente: objetiva, simples e sem juridiquês desnecessario.</p></div></div>
+            <div class="settings-layout">
+              <div>
+                <form id="update-form" class="team-form">
+                  <label>Caso<select required name="caseId" id="update-case-select"></select></label>
+                  <label>Titulo simples<input required name="title" placeholder="Ex.: Recebemos seus documentos" /></label>
+                  <label>Mensagem<textarea required name="message" rows="6" placeholder="Ex.: Recebemos os documentos principais. Agora vamos revisar e avisamos voce sobre o proximo passo."></textarea></label>
+                  <div class="form-actions">
+                    <button class="new-case" type="submit" id="update-submit">Enviar atualizacao -></button>
+                  </div>
+                </form>
+              </div>
+              <div>
+                <div id="updates-list" class="document-templates-list"></div>
+              </div>
+            </div>
+          </section>
+        </section>
+
+        <section id="settings-view" class="view">
+          <div class="content-title">
+            <div>
+              <p class="eyebrow">EQUIPE E ACESSOS</p>
+              <h1>Perfis e permissoes</h1>
+              <p class="subcopy">Cadastre membros do escritorio e acessos de clientes.</p>
+            </div>
+          </div>
+          <section class="panel settings-panel">
+            <div class="panel-heading"><div><h2>Membros do escritorio</h2><p>Somente administradores podem criar, editar e excluir acessos.</p></div></div>
+            <p id="team-feedback" class="settings-feedback" hidden></p>
+            <div class="settings-layout">
+              <div>
+                <form id="team-form" class="team-form">
+                  <input type="hidden" name="userId" />
+                  <label>Nome completo<input required name="name" placeholder="Ex.: Camila Rocha" /></label>
+                  <label>E-mail<input required name="email" type="email" placeholder="camila@escritorio.com.br" /></label>
+                  <label id="team-password-field">Senha inicial<input required name="password" type="password" minlength="8" placeholder="Minimo 8 caracteres" /></label>
+                  <label>Perfil<select name="role" id="team-role"><option value="lawyer">Advogado</option><option value="assistant">Assistente</option><option value="admin">Administrador</option><option value="client">Cliente</option></select></label>
+                  <label id="client-name-field" hidden>Cliente vinculado<input name="clientName" placeholder="Ex.: Juliana Ferreira" /></label>
+                  <div class="form-actions">
+                    <button class="new-case" type="submit" id="team-submit">Criar acesso -></button>
+                    <button class="secondary-button" type="button" id="team-cancel" hidden>Cancelar edicao</button>
+                  </div>
+                </form>
+              </div>
+              <div>
+                <div id="team-list" class="team-list"></div>
+              </div>
+            </div>
+          </section>
+        </section>
       </main>
     </div>
-    <div class="modal-backdrop" id="modal-backdrop" hidden><div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title"><button class="close-modal" aria-label="Fechar">×</button><p class="eyebrow">NOVO CASO</p><h2 id="modal-title">Comece um novo acompanhamento</h2><p>Crie o caso e envie uma checklist ao cliente em seguida.</p><form id="case-form"><label>Nome do cliente<input required name="client" placeholder="Ex.: Juliana Ferreira" /></label><label>Título do caso<input required name="title" placeholder="Ex.: Revisão de contrato" /></label><label>Próximo prazo<input required name="due" type="date" /></label><button class="new-case" type="submit">Criar caso →</button></form></div></div>
+
+    <div class="modal-backdrop" id="modal-backdrop" hidden>
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+        <button class="close-modal" aria-label="Fechar">x</button>
+        <p class="eyebrow">NOVO CASO</p>
+        <h2 id="modal-title">Comece um novo acompanhamento</h2>
+        <p>Crie o caso e envie uma checklist ao cliente em seguida.</p>
+        <form id="case-form">
+          <label>Nome do cliente<input required name="client" placeholder="Ex.: Juliana Ferreira" /></label>
+          <label>Titulo do caso<input required name="title" placeholder="Ex.: Revisao de contrato" /></label>
+          <label>Proximo prazo<input required name="due" type="date" /></label>
+          <label>Responsavel<select name="responsibleUserId" id="case-create-responsible"><option value="">Definir depois</option></select></label>
+          <label>Observacoes internas<textarea name="internalNotes" rows="3" placeholder="Contexto interno do atendimento"></textarea></label>
+          <button class="new-case" type="submit">Criar caso -></button>
+        </form>
+      </div>
+    </div>
+
+    <div class="modal-backdrop" id="case-detail-modal-backdrop" hidden>
+      <div class="modal case-detail-modal" role="dialog" aria-modal="true" aria-labelledby="case-detail-title">
+        <button class="close-modal" id="close-case-detail-modal" aria-label="Fechar">x</button>
+        <p class="eyebrow">GESTAO DO CASO</p>
+        <h2 id="case-detail-title">Editar caso</h2>
+        <p>Atualize status, responsavel, prazo, observacoes e os proximos passos sem perder o historico.</p>
+        <form id="case-detail-form">
+          <input type="hidden" name="caseId" />
+          <label>Titulo do caso<input required name="title" /></label>
+          <label>Status<select name="statusKey"><option value="waiting">Aguardando cliente</option><option value="review">Em analise</option><option value="done">Concluido</option></select></label>
+          <label>Responsavel<select name="responsibleUserId" id="case-edit-responsible"><option value="">Sem responsavel</option></select></label>
+          <label>Prazo<input name="dueDate" type="date" /></label>
+          <label>Observacoes internas<textarea name="internalNotes" rows="4"></textarea></label>
+          <div class="case-modal-metrics">
+            <span class="client-chip" id="case-detail-client-chip">Cliente</span>
+            <span class="client-chip" id="case-detail-docs-chip">0/0 docs</span>
+            <span class="client-chip" id="case-detail-archive-chip">Ativo</span>
+          </div>
+          <div class="form-actions">
+            <button class="new-case" type="submit" id="case-detail-submit">Salvar caso -></button>
+            <button class="secondary-button" type="button" id="case-archive-toggle">Arquivar caso</button>
+          </div>
+        </form>
+        <section class="case-task-section">
+          <div class="panel-heading case-task-heading"><div><h2>Proximos passos</h2><p>Tarefas internas vinculadas a este caso.</p></div></div>
+          <form id="case-task-form" class="inline-task-form">
+            <input type="hidden" name="caseId" />
+            <input name="title" required placeholder="Ex.: Revisar peticao inicial" />
+            <input name="dueDate" type="date" />
+            <button class="new-case" type="submit">Adicionar</button>
+          </form>
+          <div id="case-tasks-list" class="case-tasks-list"></div>
+        </section>
+      </div>
+    </div>
+
+    <div class="modal-backdrop" id="document-modal-backdrop" hidden>
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="document-modal-title">
+        <button class="close-modal" id="close-document-modal" aria-label="Fechar">x</button>
+        <p class="eyebrow">SOLICITACAO DE DOCUMENTO</p>
+        <h2 id="document-modal-title">Solicitar novo documento</h2>
+        <p>Escolha o caso e descreva claramente o arquivo que o cliente precisa enviar.</p>
+        <form id="document-request-form">
+          <label>Caso<select required name="caseId" id="document-case-select"></select></label>
+          <label>Documento<input required name="name" minlength="3" placeholder="Ex.: Comprovante de residencia atualizado" /></label>
+          <button class="new-case" type="submit" id="document-submit">Solicitar documento -></button>
+        </form>
+      </div>
+    </div>
+
+    <div class="modal-backdrop" id="template-modal-backdrop" hidden>
+      <div class="modal case-detail-modal" role="dialog" aria-modal="true" aria-labelledby="template-modal-title">
+        <button class="close-modal" id="close-template-modal" aria-label="Fechar">x</button>
+        <p class="eyebrow">MODELO DE CHECKLIST</p>
+        <h2 id="template-modal-title">Novo modelo</h2>
+        <p>Crie um checklist reutilizavel por tipo de atendimento e aplique depois em qualquer caso.</p>
+        <form id="template-form">
+          <input type="hidden" name="templateId" />
+          <label>Nome do modelo<input required name="name" placeholder="Ex.: Divorcio consensual" /></label>
+          <label>Tipo de atendimento<input name="serviceType" placeholder="Ex.: Familia, Trabalhista, Contratos" /></label>
+          <label>Descricao<textarea name="description" rows="3" placeholder="Quando usar este modelo"></textarea></label>
+          <label>Itens do checklist<textarea required name="items" rows="8" placeholder="Um item por linha&#10;Ex.: RG e CPF&#10;Comprovante de residencia&#10;Certidao de casamento"></textarea></label>
+          <div class="form-actions">
+            <button class="new-case" type="submit" id="template-submit">Salvar modelo -></button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="modal-backdrop" id="template-apply-modal-backdrop" hidden>
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="template-apply-title">
+        <button class="close-modal" id="close-template-apply-modal" aria-label="Fechar">x</button>
+        <p class="eyebrow">APLICAR MODELO</p>
+        <h2 id="template-apply-title">Aplicar checklist ao caso</h2>
+        <p>Selecione o caso que deve receber os itens deste modelo.</p>
+        <form id="template-apply-form">
+          <input type="hidden" name="templateId" />
+          <label>Caso<select required name="caseId" id="template-apply-case-select"></select></label>
+          <button class="new-case" type="submit" id="template-apply-submit">Aplicar checklist -></button>
+        </form>
+      </div>
+    </div>
+
+    <div class="modal-backdrop" id="document-note-modal-backdrop" hidden>
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="document-note-title">
+        <button class="close-modal" id="close-document-note-modal" aria-label="Fechar">x</button>
+        <p class="eyebrow" id="document-note-eyebrow">DOCUMENTO</p>
+        <h2 id="document-note-title">Registrar observacao</h2>
+        <p id="document-note-description">Descreva a acao que deve ficar registrada neste documento.</p>
+        <form id="document-note-form">
+          <input type="hidden" name="documentId" />
+          <input type="hidden" name="action" />
+          <label id="document-note-label">Observacao
+            <textarea name="note" rows="4" placeholder="Escreva uma observacao clara para este documento."></textarea>
+          </label>
+          <div class="form-actions">
+            <button class="secondary-button" type="button" id="document-note-cancel">Cancelar</button>
+            <button class="new-case" type="submit" id="document-note-submit">Salvar -></button>
+          </div>
+        </form>
+      </div>
+    </div>
+
     <div class="toast" id="toast" role="status"></div>
     <script src="app.js"></script>
   </body>
