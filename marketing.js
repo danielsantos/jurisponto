@@ -68,7 +68,7 @@ function showPasswordResetRequest() {
 
 function showPasswordReset(email, developmentCode) {
   pendingVerificationEmail = email;
-  success.innerHTML = `<span>OK</span><h2>Crie uma nova senha</h2><p>Digite o codigo recebido e escolha uma nova senha.</p><p class="auth-error" hidden role="alert"></p>${developmentCode ? `<p class="development-code">Codigo de teste: <b>${developmentCode}</b></p>` : ''}<form class="password-reset-form"><input required name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" placeholder="Codigo de 6 digitos" /><input required name="password" type="password" minlength="8" autocomplete="new-password" placeholder="Nova senha (minimo 8 caracteres)" /><button class="button" type="submit">Salvar nova senha -></button></form><button class="resend-code" type="button">Enviar novo codigo</button>`;
+  success.innerHTML = `<span>OK</span><h2>Crie uma nova senha</h2><p>Digite o codigo recebido e escolha uma nova senha.</p><p class="auth-error" hidden role="alert"></p>${developmentCode ? `<p class="development-code">Codigo de teste: <b>${developmentCode}</b></p>` : ''}<form class="password-reset-form"><input required name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" placeholder="Codigo de 6 digitos" /><span class="password-input"><input required name="password" type="password" minlength="8" autocomplete="new-password" placeholder="Nova senha (minimo 8 caracteres)" /><button class="password-toggle" type="button" aria-label="Mostrar senha" title="Mostrar senha">👁</button></span><button class="button" type="submit">Salvar nova senha -></button></form><button class="resend-code" type="button">Enviar novo codigo</button>`;
   success.querySelector('.password-reset-form').addEventListener('submit', resetPassword);
   success.querySelector('.resend-code').addEventListener('click', resendPasswordResetCode);
 }
@@ -187,6 +187,16 @@ document.querySelectorAll('[data-show-form]').forEach((button) => button.addEven
 document.querySelector('.modal-close').addEventListener('click', closeModal);
 modal.addEventListener('click', (event) => { if (event.target === modal) closeModal(); });
 document.addEventListener('keydown', (event) => { if (event.key === 'Escape') closeModal(); });
+document.addEventListener('click', (event) => {
+  const button = event.target.closest('.password-toggle');
+  if (!button) return;
+  const input = button.closest('.password-input').querySelector('input');
+  const visible = input.type === 'password';
+  input.type = visible ? 'text' : 'password';
+  button.setAttribute('aria-label', visible ? 'Ocultar senha' : 'Mostrar senha');
+  button.setAttribute('title', visible ? 'Ocultar senha' : 'Mostrar senha');
+  button.textContent = visible ? '◉' : '👁';
+});
 loginForm.querySelector('a').addEventListener('click', (event) => { event.preventDefault(); showPasswordResetRequest(); });
 
 signupForm.querySelector('form').addEventListener('submit', async (event) => {

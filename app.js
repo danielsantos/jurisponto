@@ -1671,6 +1671,16 @@ document.addEventListener('click', async (event) => {
 });
 
 $('.mobile-menu').addEventListener('click', () => $('.sidebar').classList.toggle('open'));
+document.addEventListener('click', (event) => {
+  const button = event.target.closest('.password-toggle');
+  if (!button) return;
+  const input = button.closest('.password-input').querySelector('input');
+  const visible = input.type === 'password';
+  input.type = visible ? 'text' : 'password';
+  button.setAttribute('aria-label', visible ? 'Ocultar senha' : 'Mostrar senha');
+  button.setAttribute('title', visible ? 'Ocultar senha' : 'Mostrar senha');
+  button.textContent = visible ? '◉' : '👁';
+});
 $('#logout-button').addEventListener('click', async () => {
   await api('/api/auth/logout', { method: 'POST' });
   window.location.assign('/');

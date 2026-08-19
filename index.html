@@ -9,6 +9,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="password-toggle.css" />
   </head>
   <body>
     <div class="app-shell" id="app-shell">
@@ -226,7 +227,7 @@
                   <input type="hidden" name="userId" />
                   <label>Nome completo<input required name="name" placeholder="Ex.: Camila Rocha" /></label>
                   <label>E-mail<input required name="email" type="email" placeholder="camila@escritorio.com.br" /></label>
-                  <label id="team-password-field">Senha inicial<input required name="password" type="password" minlength="8" placeholder="Minimo 8 caracteres" /></label>
+                  <label id="team-password-field">Senha inicial<span class="password-input"><input required name="password" type="password" minlength="8" placeholder="Minimo 8 caracteres" /><button class="password-toggle" type="button" aria-label="Mostrar senha" title="Mostrar senha">👁</button></span></label>
                   <label>Perfil<select name="role" id="team-role"><option value="lawyer">Advogado</option><option value="assistant">Assistente</option><option value="admin">Administrador</option><option value="client">Cliente</option></select></label>
                   <label id="client-name-field" hidden>Cliente vinculado<input name="clientName" placeholder="Ex.: Juliana Ferreira" /></label>
                   <div class="form-actions">
