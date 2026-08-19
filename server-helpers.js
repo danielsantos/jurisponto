@@ -93,7 +93,7 @@ function readCookies(req) {
 }
 
 function readSessionToken(req) {
-  return sanitizeTextInput(readCookies(req).jurisponto_session, 255);
+  return sanitizeTextInput(readCookies(req).rota_do_caso_session, 255);
 }
 
 function createRequirePermission() {

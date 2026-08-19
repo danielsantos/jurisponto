@@ -62,7 +62,7 @@ test('parseUuidParam accepts valid uuid and rejects invalid input', () => {
 test('readSessionToken extracts and sanitizes the auth cookie', () => {
   const req = {
     headers: {
-      cookie: 'foo=bar; jurisponto_session=abc123%0A; theme=light'
+      cookie: 'foo=bar; rota_do_caso_session=abc123%0A; theme=light'
     }
   };
 

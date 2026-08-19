@@ -1,4 +1,4 @@
-# JurisPonto
+# Rota do Caso
 
 Portal para escritorios juridicos organizarem casos, coleta de documentos e comunicacao simples com clientes.
 
@@ -30,7 +30,7 @@ Para reiniciar completamente o banco de desenvolvimento, execute `docker compose
 
 ### Conexao no VPS
 
-No servidor, nao execute o conteiner `db` se o MySQL ja estiver instalado. Defina `DATABASE_URL` com as credenciais do seu servidor, por exemplo: `mysql://usuario:senha@127.0.0.1:3306/jurisponto`. Antes de iniciar a aplicacao, crie o banco `jurisponto`, crie um usuario com acesso somente a esse banco e execute apenas `npm run migrate`. Nao rode `npm run seed:demo` em ambiente real.
+No servidor, nao execute o conteiner `db` se o MySQL ja estiver instalado. Defina `DATABASE_URL` com as credenciais do seu servidor, por exemplo: `mysql://usuario:senha@127.0.0.1:3306/rotadocaso`. Antes de iniciar a aplicacao, crie o banco `rotadocaso`, crie um usuario com acesso somente a esse banco e execute apenas `npm run migrate`. Nao rode `npm run seed:demo` em ambiente real.
 
 ## O que ja esta conectado ao banco
 
@@ -43,7 +43,7 @@ No servidor, nao execute o conteiner `db` se o MySQL ja estiver instalado. Defin
 
 ## Rotas da interface
 
-- `/`: site institucional do JurisPonto, com apresentacao, periodo de teste de 14 dias e cadastro real de escritorio/usuario.
+- `/`: site institucional da Rota do Caso, com apresentacao, periodo de teste de 14 dias e cadastro real de escritorio/usuario.
 - `/app`: painel do escritorio.
 
 O cadastro cria um escritorio e um usuario administrador com senha protegida por hash no MySQL. Antes do primeiro login, o usuario confirma o e-mail com um codigo de seis digitos valido por 15 minutos. A recuperacao de senha usa o mesmo padrao e invalida sessoes anteriores quando a senha e alterada. Com `EMAIL_PROVIDER=development`, os codigos aparecem na propria tela e no terminal; a integracao com Resend ja esta preparada pelas variaveis de ambiente.

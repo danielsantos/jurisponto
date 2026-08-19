@@ -179,7 +179,7 @@ function writeStructuredLog(entry) {
 function logEvent(level, event, context = {}, extra = {}) {
   writeStructuredLog({
     timestamp: new Date().toISOString(),
-    service: 'jurisponto-api',
+    service: 'rota-do-caso-api',
     environment: process.env.NODE_ENV || 'development',
     level,
     event,
@@ -440,7 +440,7 @@ function formatCaseUpdate(row) {
     client: row.client_name,
     title: row.title,
     message: row.message,
-    authorName: row.author_name || 'Equipe JurisPonto',
+    authorName: row.author_name || 'Equipe Rota do Caso',
     createdAt: row.created_at
   };
 }
@@ -697,7 +697,7 @@ async function recordDocumentAudit(db, req, { documentId, officeId, action, meta
 }
 
 function clearSessionCookie(res) {
-  res.clearCookie('jurisponto_session', {
+  res.clearCookie('rota_do_caso_session', {
     httpOnly: true,
     sameSite: 'lax',
     secure: process.env.NODE_ENV === 'production',
@@ -777,7 +777,7 @@ app.use((req, _res, next) => {
 app.use('/uploads', express.static(uploadsDirectory));
 
 function setSessionCookie(res, token) {
-  res.cookie('jurisponto_session', token, {
+  res.cookie('rota_do_caso_session', token, {
     httpOnly: true,
     sameSite: 'lax',
     secure: process.env.NODE_ENV === 'production',

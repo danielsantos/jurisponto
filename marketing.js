@@ -2,7 +2,7 @@ const modal = document.querySelector('#auth-modal');
 const signupForm = document.querySelector('#signup-form');
 const loginForm = document.querySelector('#login-form');
 const success = document.querySelector('.auth-success');
-let pendingVerificationEmail = sessionStorage.getItem('jurisponto_pending_verification_email') || '';
+let pendingVerificationEmail = sessionStorage.getItem('rota_do_caso_pending_verification_email') || '';
 
 function openModal(view) {
   modal.hidden = false;
@@ -46,7 +46,7 @@ async function request(url, body) {
 
 function showVerification(email, developmentCode) {
   pendingVerificationEmail = email;
-  sessionStorage.setItem('jurisponto_pending_verification_email', email);
+  sessionStorage.setItem('rota_do_caso_pending_verification_email', email);
   signupForm.hidden = true;
   loginForm.hidden = true;
   success.hidden = false;
@@ -123,7 +123,7 @@ async function verifyCode(event) {
   button.textContent = 'Confirmando...';
   try {
     await request('/api/auth/verify-email', { email: pendingVerificationEmail, code: new FormData(form).get('code') });
-    sessionStorage.removeItem('jurisponto_pending_verification_email');
+    sessionStorage.removeItem('rota_do_caso_pending_verification_email');
     window.location.assign('/app');
   } catch (exception) {
     error.textContent = exception.message;
@@ -223,7 +223,7 @@ loginForm.querySelector('form').addEventListener('submit', async (event) => {
     else showFormError(loginForm, exception.message);
   } finally {
     submit.disabled = false;
-    submit.textContent = 'Entrar no JurisPonto ->';
+    submit.textContent = 'Entrar na Rota do Caso ->';
   }
 });
 

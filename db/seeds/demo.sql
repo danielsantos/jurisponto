@@ -41,7 +41,7 @@ DELETE FROM offices
 WHERE id = @demo_office_id;
 
 INSERT INTO offices (id, name) VALUES
-  (@demo_office_id, 'JurisPonto Demonstracao');
+  (@demo_office_id, 'Rota do Caso Demonstracao');
 
 INSERT INTO clients (id, office_id, name, avatar_color) VALUES
   ('00000000-0000-0000-0000-000000000001', @demo_office_id, 'Mariana Almeida', '#c7a86b'),

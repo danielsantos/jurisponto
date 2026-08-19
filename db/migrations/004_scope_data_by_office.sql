@@ -11,7 +11,7 @@ PREPARE office_id_migration_statement FROM @office_id_migration_sql;
 EXECUTE office_id_migration_statement;
 DEALLOCATE PREPARE office_id_migration_statement;
 
-INSERT IGNORE INTO offices (id, name) VALUES ('00000000-0000-0000-0000-000000000099', 'JurisPonto Demonstração');
+INSERT IGNORE INTO offices (id, name) VALUES ('00000000-0000-0000-0000-000000000099', 'Rota do Caso Demonstração');
 UPDATE clients SET office_id = '00000000-0000-0000-0000-000000000099' WHERE office_id IS NULL;
 ALTER TABLE clients MODIFY COLUMN office_id CHAR(36) NOT NULL;
 

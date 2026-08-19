@@ -1,5 +1,5 @@
-const senderName = process.env.EMAIL_FROM_NAME || 'JurisPonto';
-const senderAddress = process.env.EMAIL_FROM || 'contato@jurisponto.local';
+const senderName = process.env.EMAIL_FROM_NAME || 'Rota do Caso';
+const senderAddress = process.env.EMAIL_FROM || 'contato@rotadocaso.local';
 const escapeHtml = (value) => String(value).replace(/[&<>'"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[character]));
 
 async function deliverEmail({ to, subject, html, text, developmentCode }) {
@@ -22,10 +22,10 @@ async function sendVerificationEmail({ to, name, code }) {
   const safeName = escapeHtml(name);
   return deliverEmail({
     to,
-    subject: 'Confirme seu e-mail no JurisPonto',
+    subject: 'Confirme seu e-mail na Rota do Caso',
     developmentCode: code,
-    text: `Olá, ${name}. Seu código de confirmação do JurisPonto é ${code}. Ele expira em 15 minutos.`,
-    html: `<p>Olá, ${safeName}.</p><p>Seu código de confirmação do JurisPonto é:</p><h1 style="letter-spacing:4px">${code}</h1><p>Ele expira em 15 minutos.</p>`
+    text: `Olá, ${name}. Seu código de confirmação da Rota do Caso é ${code}. Ele expira em 15 minutos.`,
+    html: `<p>Olá, ${safeName}.</p><p>Seu código de confirmação da Rota do Caso é:</p><h1 style="letter-spacing:4px">${code}</h1><p>Ele expira em 15 minutos.</p>`
   });
 }
 
@@ -33,10 +33,10 @@ async function sendPasswordResetEmail({ to, name, code }) {
   const safeName = escapeHtml(name);
   return deliverEmail({
     to,
-    subject: 'Redefina sua senha do JurisPonto',
+    subject: 'Redefina sua senha da Rota do Caso',
     developmentCode: code,
-    text: `Olá, ${name}. Seu código para redefinir a senha do JurisPonto é ${code}. Ele expira em 15 minutos.`,
-    html: `<p>Olá, ${safeName}.</p><p>Seu código para redefinir a senha do JurisPonto é:</p><h1 style="letter-spacing:4px">${code}</h1><p>Ele expira em 15 minutos.</p>`
+    text: `Olá, ${name}. Seu código para redefinir a senha da Rota do Caso é ${code}. Ele expira em 15 minutos.`,
+    html: `<p>Olá, ${safeName}.</p><p>Seu código para redefinir a senha da Rota do Caso é:</p><h1 style="letter-spacing:4px">${code}</h1><p>Ele expira em 15 minutos.</p>`
   });
 }
 

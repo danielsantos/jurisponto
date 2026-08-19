@@ -580,7 +580,7 @@ function applyPermissions() {
   const isClient = currentUser.role === 'client';
   document.body.classList.toggle('client-mode', isClient);
 
-  $('#office-name').textContent = currentUser.office || 'JurisPonto';
+  $('#office-name').textContent = currentUser.office || 'Rota do Caso';
   $('#office-avatar').textContent = initials(currentUser.office);
   $('#office-subtitle').textContent = isClient && currentUser.clientName
     ? `Portal do cliente ${currentUser.clientName}`
@@ -590,7 +590,7 @@ function applyPermissions() {
   $('#user-role').textContent = currentUser.roleLabel;
   $('#user-avatar').textContent = initials(currentUser.name);
 
-  $('#dashboard-eyebrow').textContent = isClient ? 'PORTAL DO CLIENTE' : 'PAINEL JURISPONTO';
+  $('#dashboard-eyebrow').textContent = isClient ? 'PORTAL DO CLIENTE' : 'PAINEL ROTA DO CASO';
   $('#dashboard-greeting').innerHTML = isClient ? `Ola, ${escapeHtml(currentUser.name.split(' ')[0])} <span>*</span>` : `Bom dia, ${escapeHtml(currentUser.name.split(' ')[0])} <span>*</span>`;
   $('#dashboard-subcopy').textContent = isClient
     ? 'Acompanhe seus documentos, veja o andamento e envie arquivos com mais tranquilidade.'
