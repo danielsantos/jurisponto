@@ -1771,14 +1771,22 @@ app.get('/api/cases/:id', requireAuth, async (req, res, next) => {
 });
 
 app.post('/api/cases', requireAuth, requirePermission('createCases'), async (req, res, next) => {
+  let clientId;
   let clientName;
+  let clientEmail;
   let title;
   let dueDate;
   let responsibleUserId;
   let internalNotes;
   try {
-    clientName = parseRequiredText(req.body.client, 'Cliente e titulo do caso sao obrigatorios.', { min: 2, max: 255 });
-    title = parseRequiredText(req.body.title, 'Cliente e titulo do caso sao obrigatorios.', { min: 2, max: 500 });
+    clientId = parseOptionalUuid(req.body.clientId, 'Cliente invalido.');
+    clientName = sanitizeTextInput(req.body.clientName, 255);
+    clientEmail = normalizeEmail(req.body.clientEmail);
+    if (!clientId) {
+      clientName = parseRequiredText(clientName, 'Selecione um cliente ou informe o nome de um novo cliente.', { min: 2, max: 255 });
+      if (!isValidEmail(clientEmail)) throw new Error('Informe um e-mail valido para o novo cliente.');
+    }
+    title = parseRequiredText(req.body.title, 'Informe o titulo do caso.', { min: 2, max: 500 });
     dueDate = parseOptionalDate(req.body.dueDate);
     responsibleUserId = parseOptionalUuid(req.body.responsibleUserId, 'Responsavel invalido.');
     internalNotes = sanitizeTextInput(req.body.internalNotes, 5000) || '';
@@ -1793,7 +1801,24 @@ app.post('/api/cases', requireAuth, requirePermission('createCases'), async (req
   const db = await pool.getConnection();
   try {
     await db.beginTransaction();
-    const client = await upsertClient(db, req.user.office_id, clientName);
+    let client;
+    if (clientId) {
+      const [clientRows] = await db.query(
+        'SELECT id, name, email FROM clients WHERE id = ? AND office_id = ? FOR UPDATE',
+        [clientId, req.user.office_id]
+      );
+      client = clientRows[0];
+      if (!client) {
+        await db.rollback();
+        return sendError(req, res, { status: 404, code: 'CLIENT_NOT_FOUND', message: 'Cliente nao encontrado para este escritorio.' });
+      }
+      if (!client.email) {
+        await db.rollback();
+        return sendError(req, res, { status: 400, code: 'CLIENT_EMAIL_REQUIRED', message: 'O cliente selecionado nao possui e-mail. Atualize o cadastro antes de criar o caso.' });
+      }
+    } else {
+      client = await upsertClient(db, req.user.office_id, clientName, clientEmail);
+    }
     await assertResponsibleUser(db, req.user.office_id, responsibleUserId);
     const [[caseIdResult]] = await db.query('SELECT UUID() AS id');
 

@@ -737,6 +737,24 @@ function populateCaseSelects() {
   $('#document-case-filter').value = documentFilters.caseId;
 }
 
+function updateNewCaseClientFields() {
+  const form = $('#case-form');
+  const isNewClient = form.elements.clientId.value === '__new__';
+  $('#new-case-client-fields').hidden = !isNewClient;
+  form.elements.clientName.required = isNewClient;
+  form.elements.clientEmail.required = isNewClient;
+  $('#case-client-helper').textContent = isNewClient
+    ? 'Informe um e-mail válido: é para ele que serão enviados os links seguros de documentos.'
+    : 'Selecione um cliente com e-mail para que ele possa receber documentos.';
+}
+
+function populateCaseClientSelect() {
+  const select = $('#case-client-select');
+  const withEmail = clients.filter((client) => client.email);
+  select.innerHTML = `<option value="">Selecione um cliente</option>${withEmail.map((client) => `<option value="${escapeAttribute(safeId(client.id))}">${escapeHtml(client.name)} · ${escapeHtml(client.email)}</option>`).join('')}<option value="__new__">+ Cadastrar novo cliente</option>`;
+  updateNewCaseClientFields();
+}
+
 function populateResponsibleOptions() {
   const options = assignableUsers.map((user) => `<option value="${escapeAttribute(safeId(user.id))}">${escapeHtml(user.name)}</option>`).join('');
 
@@ -944,12 +962,14 @@ document.querySelectorAll('[data-view], [data-view-target]').forEach((button) =>
 $('#new-case').addEventListener('click', () => {
   if (!currentUser?.permissions?.createCases) return showToast('Seu perfil nao pode criar casos.');
   populateResponsibleOptions();
+  populateCaseClientSelect();
   $('#modal-backdrop').hidden = false;
 });
 
 $('#new-case-secondary').addEventListener('click', () => {
   if (!currentUser?.permissions?.createCases) return showToast('Seu perfil nao pode criar casos.');
   populateResponsibleOptions();
+  populateCaseClientSelect();
   $('#modal-backdrop').hidden = false;
 });
 
@@ -966,6 +986,7 @@ $('#close-template-apply-modal').addEventListener('click', closeTemplateApplyMod
 $('#document-note-modal-backdrop').addEventListener('click', (event) => { if (event.target === event.currentTarget) closeDocumentNoteModal(); });
 $('#close-document-note-modal').addEventListener('click', closeDocumentNoteModal);
 $('#document-note-cancel').addEventListener('click', closeDocumentNoteModal);
+$('#case-client-select').addEventListener('change', updateNewCaseClientFields);
 
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape' && !$('#modal-backdrop').hidden) closeCaseModal();
@@ -989,7 +1010,9 @@ $('#case-form').addEventListener('submit', async (event) => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        client: data.get('client'),
+        clientId: data.get('clientId') === '__new__' ? '' : data.get('clientId'),
+        clientName: data.get('clientName'),
+        clientEmail: data.get('clientEmail'),
         title: data.get('title'),
         dueDate: data.get('due'),
         responsibleUserId: data.get('responsibleUserId'),
@@ -998,7 +1021,8 @@ $('#case-form').addEventListener('submit', async (event) => {
     });
     form.reset();
     closeCaseModal();
-    await loadCases();
+    await Promise.all([loadCases(), loadClients()]);
+    populateCaseClientSelect();
     populateCaseSelects();
     showView('cases');
     showToast(`Caso "${createdCase.title}" criado com sucesso.`);

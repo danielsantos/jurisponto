@@ -252,7 +252,12 @@
         <h2 id="modal-title">Comece um novo acompanhamento</h2>
         <p>Crie o caso e envie uma checklist ao cliente em seguida.</p>
         <form id="case-form">
-          <label>Nome do cliente<input required name="client" placeholder="Ex.: Juliana Ferreira" /></label>
+          <label>Cliente<select required name="clientId" id="case-client-select"><option value="">Carregando clientes...</option></select></label>
+          <p class="form-helper" id="case-client-helper">Selecione um cliente com e-mail para que ele possa receber documentos.</p>
+          <div id="new-case-client-fields" hidden>
+            <label>Nome do novo cliente<input name="clientName" placeholder="Ex.: Juliana Ferreira" /></label>
+            <label>E-mail para documentos<input name="clientEmail" type="email" placeholder="juliana@email.com" /></label>
+          </div>
           <label>Titulo do caso<input required name="title" placeholder="Ex.: Revisao de contrato" /></label>
           <label>Proximo prazo<input required name="due" type="date" /></label>
           <label>Responsavel<select name="responsibleUserId" id="case-create-responsible"><option value="">Definir depois</option></select></label>

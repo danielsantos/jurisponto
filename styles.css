@@ -87,3 +87,4 @@
 .document-actions-stack{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
 .document-note{display:block;margin-top:6px;color:#7f8da0;font-size:10px;line-height:1.5}
 @media(max-width:900px){.inline-task-form{grid-template-columns:1fr}.case-detail-modal{padding:22px}}
+.form-helper{margin:-5px 0 0;color:#778599;font-size:11px;line-height:1.4}
