@@ -849,7 +849,9 @@ app.use((req, _res, next) => {
   req.startedAt = Date.now();
   next();
 });
-app.use('/uploads', express.static(uploadsDirectory));
+// Nunca exponha esta pasta como arquivo estático. Documentos jurídicos só podem
+// ser obtidos pela rota autenticada /api/documents/:id/download, que aplica o
+// escopo do escritório/cliente e registra a auditoria do download.
 
 function setSessionCookie(res, token) {
   res.cookie('rota_do_caso_session', token, {

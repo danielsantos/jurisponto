@@ -55,6 +55,8 @@ Cada conta pertence a um escritorio. Clientes sao vinculados ao escritorio e tod
 
 Ao solicitar um documento, aplicar um checklist, enviar um lembrete ou pedir reenvio, o sistema usa o e-mail cadastrado no cliente para enviar um link individual de upload. O link vale por 7 dias, pode enviar somente aquele documento e deixa de funcionar logo após o envio. Por isso, o cliente nao precisa ter uma conta no portal para enviar o arquivo.
 
+Os arquivos enviados nao sao publicados como arquivos estaticos. O download acontece exclusivamente por `/api/documents/:id/download`, que exige sessao autenticada, valida o escopo do escritorio (e do proprio cliente, quando aplicavel) e registra o evento na auditoria.
+
 Para enviar e-mails reais, configure um dominio e defina `EMAIL_PROVIDER=resend`, `RESEND_API_KEY`, `EMAIL_FROM` e `APP_URL` no ambiente de producao. Enquanto `EMAIL_PROVIDER=development`, a mensagem e o link sao exibidos apenas no log do servidor.
 
 ## Observabilidade operacional
