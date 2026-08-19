@@ -235,6 +235,13 @@ function documentActions(document) {
   `;
 }
 
+function documentNotificationMessage(notification, fallback) {
+  if (!notification) return fallback;
+  if (notification.delivered) return `E-mail enviado para ${notification.recipient}.`;
+  if (notification.reason === 'CLIENT_WITHOUT_EMAIL') return 'Documento criado, mas o cliente nao possui e-mail cadastrado.';
+  return 'Documento criado, mas nao foi possivel enviar o e-mail agora.';
+}
+
 function documentRow(document) {
   const statusClass = document.status === 'received'
     ? 'success-chip'
@@ -1080,7 +1087,7 @@ $('#document-request-form').addEventListener('submit', async (event) => {
 
   try {
     const payload = Object.fromEntries(new FormData(form));
-    await api('/api/documents/request', {
+    const createdDocument = await api('/api/documents/request', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
@@ -1089,7 +1096,7 @@ $('#document-request-form').addEventListener('submit', async (event) => {
     closeDocumentModal();
     await loadDocuments();
     showView('documents');
-    showToast('Documento adicionado ao checklist do caso.');
+    showToast(documentNotificationMessage(createdDocument.notification, 'Documento adicionado ao checklist do caso.'));
   } catch (error) {
     showToast(error.message);
   } finally {
@@ -1154,7 +1161,15 @@ $('#template-apply-form').addEventListener('submit', async (event) => {
     closeTemplateApplyModal();
     await loadDocuments();
     await loadCases();
-    showToast(`${result.createdCount} item${result.createdCount === 1 ? '' : 's'} aplicados ao caso.`);
+    const deliveredCount = (result.notifications || []).filter((item) => item.delivered).length;
+    const notificationCopy = result.createdCount
+      ? deliveredCount === result.createdCount
+        ? ` E-mails enviados: ${deliveredCount}.`
+        : deliveredCount
+          ? ` E-mails enviados: ${deliveredCount} de ${result.createdCount}.`
+          : ' Nenhum e-mail foi enviado; confira o cadastro do cliente.'
+      : '';
+    showToast(`${result.createdCount} item${result.createdCount === 1 ? '' : 's'} aplicados ao caso.${notificationCopy}`);
   } catch (error) {
     showToast(error.message);
   } finally {
@@ -1188,7 +1203,7 @@ $('#document-note-form').addEventListener('submit', async (event) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ note })
       });
-      showToast('Reenvio solicitado com observacao.');
+      showToast(documentNotificationMessage(result.notification, 'Reenvio solicitado com observacao.'));
     } else {
       result = await api(`/api/documents/${encodeURIComponent(pendingDocumentAction.documentId)}/status`, {
         method: 'PATCH',
@@ -1450,7 +1465,7 @@ document.addEventListener('click', async (event) => {
         ? { ...item, remindedAt: result.remindedAt }
         : item);
       renderDocuments();
-      showToast('Lembrete registrado para o cliente.');
+      showToast(documentNotificationMessage(result.notification, 'Lembrete enviado para o cliente.'));
     } catch (error) {
       remindButton.disabled = false;
       showToast(error.message);

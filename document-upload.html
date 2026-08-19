@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#17263d" />
+    <title>Enviar documento | Rota do Caso</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="document-upload.css" />
+  </head>
+  <body>
+    <main class="upload-page">
+      <section class="upload-card" aria-labelledby="upload-title">
+        <div class="brand"><span>R</span> Rota <em>do Caso</em></div>
+        <p class="eyebrow">ENVIO SEGURO</p>
+        <h1 id="upload-title">Enviar documento</h1>
+        <p id="intro">Validando seu link seguro…</p>
+        <div id="document-details" class="document-details" hidden>
+          <strong id="document-name"></strong>
+          <span id="case-title"></span>
+        </div>
+        <form id="upload-form" hidden>
+          <label class="file-field">Selecione o arquivo
+            <input id="file" name="file" type="file" required accept=".pdf,.png,.jpg,.jpeg,.doc,.docx" />
+            <small>PDF, PNG, JPG, DOC ou DOCX — até 10 MB.</small>
+          </label>
+          <p id="form-error" class="error" role="alert" hidden></p>
+          <button type="submit">Enviar arquivo</button>
+        </form>
+        <p class="security-note">Este link é pessoal e expira após o envio ou em 7 dias.</p>
+      </section>
+    </main>
+    <script src="document-upload.js"></script>
+  </body>
+</html>

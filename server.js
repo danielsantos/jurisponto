@@ -8,7 +8,7 @@ const fs = require('fs/promises');
 const syncFs = require('fs');
 const multer = require('multer');
 const { createDatabasePool } = require('./database');
-const { sendVerificationEmail, sendPasswordResetEmail } = require('./email-service');
+const { sendVerificationEmail, sendPasswordResetEmail, sendDocumentRequestEmail } = require('./email-service');
 const {
   buildMeta,
   createRequirePermission,
@@ -27,6 +27,7 @@ const port = process.env.PORT || 3000;
 const pool = createDatabasePool();
 const sessionDuration = 7 * 24 * 60 * 60 * 1000;
 const verificationCodeDuration = 15 * 60 * 1000;
+const documentUploadLinkDuration = 7 * 24 * 60 * 60 * 1000;
 const uploadsDirectory = path.join(__dirname, 'uploads');
 const logsDirectory = path.join(__dirname, 'logs');
 const logDestination = (process.env.LOG_DESTINATION || 'console').toLowerCase();
@@ -120,6 +121,7 @@ const formatDueDate = (dueDate) => {
 const hashVerificationCode = (code) => crypto.createHash('sha256').update(code).digest('hex');
 const createVerificationCode = () => crypto.randomInt(0, 1000000).toString().padStart(6, '0');
 const hashSessionToken = (token) => crypto.createHash('sha256').update(token).digest('hex');
+const hashDocumentUploadToken = (token) => crypto.createHash('sha256').update(token).digest('hex');
 const normalizeEmail = (value) => sanitizeTextInput(value, 255).toLowerCase();
 const isValidEmail = (value) => emailPattern.test(value || '');
 const sanitizeAvatarColor = (value) => hexColorPattern.test(value || '') ? value : '#a7c3b1';
@@ -464,12 +466,12 @@ async function ensureUploadsDirectory() {
   }
 }
 
-async function upsertClient(db, officeId, clientName) {
+async function upsertClient(db, officeId, clientName, clientEmail = null) {
   if (!clientName) return null;
   await db.query(
-    `INSERT INTO clients (id, office_id, name) VALUES (UUID(), ?, ?)
-     ON DUPLICATE KEY UPDATE name = VALUES(name)`,
-    [officeId, clientName]
+    `INSERT INTO clients (id, office_id, name, email) VALUES (UUID(), ?, ?, ?)
+     ON DUPLICATE KEY UPDATE name = VALUES(name), email = COALESCE(clients.email, VALUES(email))`,
+    [officeId, clientName, clientEmail]
   );
 
   const [clientRows] = await db.query(
@@ -664,7 +666,7 @@ async function fetchDocumentById(user, documentId) {
     `SELECT d.id, d.name, d.status, d.requested_at, d.last_reminded_at, d.file_name, d.mime_type, d.file_size, d.uploaded_at,
             d.reviewed_at, d.status_note, d.resend_requested_at, d.resend_note, d.file_path,
             d.source_template_id, t.name AS template_name,
-            c.id AS case_id, c.title AS case_title, cl.name AS client_name, cl.office_id
+            c.id AS case_id, c.title AS case_title, cl.name AS client_name, cl.email AS client_email, cl.office_id
      FROM documents d
      JOIN cases c ON c.id = d.case_id
      JOIN clients cl ON cl.id = c.client_id
@@ -674,6 +676,79 @@ async function fetchDocumentById(user, documentId) {
     [documentId, ...scope.params]
   );
 
+  return rows[0] || null;
+}
+
+function getApplicationUrl(req) {
+  const configuredUrl = sanitizeTextInput(process.env.APP_URL, 1000).replace(/\/$/, '');
+  if (configuredUrl) return configuredUrl;
+  const protocol = req.get('x-forwarded-proto') || req.protocol;
+  return `${protocol}://${req.get('host')}`;
+}
+
+async function createDocumentUploadLink(db, { documentId, recipientEmail }) {
+  const token = crypto.randomBytes(32).toString('base64url');
+  const expiresAt = new Date(Date.now() + documentUploadLinkDuration);
+  await db.query(
+    `INSERT INTO document_upload_links (id, document_id, token_hash, recipient_email, expires_at)
+     VALUES (?, ?, ?, ?, ?)`,
+    [crypto.randomUUID(), documentId, hashDocumentUploadToken(token), recipientEmail, expiresAt]
+  );
+  return token;
+}
+
+async function notifyClientAboutDocument(req, { documentId, clientEmail, clientName, documentName, caseTitle, kind, note = '' }) {
+  if (!clientEmail) {
+    return { delivered: false, reason: 'CLIENT_WITHOUT_EMAIL' };
+  }
+
+  const db = await pool.getConnection();
+  let token;
+  try {
+    await db.beginTransaction();
+    token = await createDocumentUploadLink(db, { documentId, recipientEmail: clientEmail });
+    await db.commit();
+  } catch (error) {
+    await db.rollback();
+    throw error;
+  } finally {
+    db.release();
+  }
+
+  try {
+    const delivery = await sendDocumentRequestEmail({
+      to: clientEmail,
+      clientName,
+      documentName,
+      caseTitle,
+      kind,
+      note,
+      uploadUrl: `${getApplicationUrl(req)}/enviar-documento?token=${encodeURIComponent(token)}`
+    });
+    return { delivered: true, mode: delivery.mode, recipient: clientEmail };
+  } catch (error) {
+    logEvent('error', 'document_notification_failed', buildRequestContext(req), {
+      documentId,
+      recipient: clientEmail,
+      kind,
+      error: serializeError(error)
+    });
+    return { delivered: false, reason: 'DELIVERY_FAILED' };
+  }
+}
+
+async function fetchDocumentUploadLink(token) {
+  if (!token || token.length < 40) return null;
+  const [rows] = await pool.query(
+    `SELECT l.id AS link_id, l.document_id, d.name AS document_name, d.status, c.title AS case_title, cl.name AS client_name, cl.office_id
+     FROM document_upload_links l
+     JOIN documents d ON d.id = l.document_id
+     JOIN cases c ON c.id = d.case_id
+     JOIN clients cl ON cl.id = c.client_id
+     WHERE l.token_hash = ? AND l.used_at IS NULL AND l.expires_at > NOW() AND d.status = 'pending'
+     LIMIT 1`,
+    [hashDocumentUploadToken(token)]
+  );
   return rows[0] || null;
 }
 
@@ -2162,7 +2237,7 @@ app.post('/api/document-templates/:id/apply', requireAuth, requirePermission('se
     await db.beginTransaction();
     const scope = getCaseScope(req.user);
     const [caseRows] = await db.query(
-      `SELECT c.id, c.title, cl.name AS client_name
+      `SELECT c.id, c.title, cl.name AS client_name, cl.email AS client_email
        FROM cases c
        JOIN clients cl ON cl.id = c.client_id
        WHERE c.id = ? AND ${scope.clause}
@@ -2246,12 +2321,21 @@ app.post('/api/document-templates/:id/apply', requireAuth, requirePermission('se
     }
 
     await db.commit();
+    const notifications = await Promise.all(createdDocuments.map((document) => notifyClientAboutDocument(req, {
+      documentId: document.id,
+      clientEmail: linkedCase.client_email,
+      clientName: linkedCase.client_name,
+      documentName: document.name,
+      caseTitle: linkedCase.title,
+      kind: 'request'
+    })));
     sendSuccess(req, res, {
       data: {
         templateId,
         caseId,
         createdCount: createdDocuments.length,
-        documents: createdDocuments.map(formatDocument)
+        documents: createdDocuments.map(formatDocument),
+        notifications
       }
     });
   } catch (error) {
@@ -2363,7 +2447,7 @@ app.post('/api/documents/request', requireAuth, requirePermission('sendDocumentR
     await db.beginTransaction();
     const scope = getCaseScope(req.user);
     const [caseRows] = await db.query(
-      `SELECT c.id, c.title, cl.name AS client_name
+      `SELECT c.id, c.title, cl.name AS client_name, cl.email AS client_email
        FROM cases c
        JOIN clients cl ON cl.id = c.client_id
        WHERE c.id = ? AND ${scope.clause}
@@ -2401,27 +2485,25 @@ app.post('/api/documents/request', requireAuth, requirePermission('sendDocumentR
     });
 
     await db.commit();
+    const notification = await notifyClientAboutDocument(req, {
+      documentId: documentIdResult.id,
+      clientEmail: linkedCase.client_email,
+      clientName: linkedCase.client_name,
+      documentName: name,
+      caseTitle: linkedCase.title,
+      kind: 'request'
+    });
     sendSuccess(req, res, {
       status: 201,
-      data: formatDocument({
-        id: documentIdResult.id,
-        name,
-        case_id: caseId,
-        case_title: linkedCase.title,
-        client_name: linkedCase.client_name,
-        is_late: 0,
-        status: 'pending',
-        requested_at: new Date().toISOString(),
-        last_reminded_at: null,
-        file_name: null,
-        file_size: null,
-        uploaded_at: null,
-        reviewed_at: null,
-        status_note: '',
-        resend_requested_at: null,
-        resend_note: '',
-        template_name: null
-      })
+      data: {
+        ...formatDocument({
+          id: documentIdResult.id, name, case_id: caseId, case_title: linkedCase.title, client_name: linkedCase.client_name,
+          is_late: 0, status: 'pending', requested_at: new Date().toISOString(), last_reminded_at: null,
+          file_name: null, file_size: null, uploaded_at: null, reviewed_at: null, status_note: '',
+          resend_requested_at: null, resend_note: '', template_name: null
+        }),
+        notification
+      }
     });
   } catch (error) {
     await db.rollback();
@@ -2463,8 +2545,17 @@ app.post('/api/documents/:id/remind', requireAuth, requirePermission('sendDocume
       }
     });
     await db.commit();
+    const document = await fetchDocumentById(req.user, documentId);
+    const notification = await notifyClientAboutDocument(req, {
+      documentId,
+      clientEmail: document?.client_email,
+      clientName: document?.client_name,
+      documentName: document?.name,
+      caseTitle: document?.case_title,
+      kind: 'reminder'
+    });
     sendSuccess(req, res, {
-      data: { id: documentId, remindedAt: new Date().toISOString() }
+      data: { id: documentId, remindedAt: new Date().toISOString(), notification }
     });
   } catch (error) {
     await db.rollback();
@@ -2599,12 +2690,22 @@ app.post('/api/documents/:id/request-resend', requireAuth, requirePermission('se
     await db.commit();
 
     const updatedDocument = await fetchDocumentById(req.user, documentId);
+    const notification = await notifyClientAboutDocument(req, {
+      documentId,
+      clientEmail: updatedDocument?.client_email,
+      clientName: updatedDocument?.client_name,
+      documentName: updatedDocument?.name,
+      caseTitle: updatedDocument?.case_title,
+      kind: 'resend',
+      note
+    });
     sendSuccess(req, res, {
       data: formatDocument({
         ...updatedDocument,
         case_title: updatedDocument.case_title,
         client_name: updatedDocument.client_name,
-        is_late: 0
+        is_late: 0,
+        notification
       })
     });
   } catch (error) {
@@ -2701,6 +2802,86 @@ app.get('/api/activity-feed', requireAuth, async (req, res, next) => {
     }
   } catch (error) {
     next(error);
+  }
+});
+
+app.get('/api/document-upload-link', async (req, res, next) => {
+  try {
+    const link = await fetchDocumentUploadLink(sanitizeTextInput(req.query.token, 500));
+    if (!link) {
+      return sendError(req, res, {
+        status: 404,
+        code: 'DOCUMENT_UPLOAD_LINK_INVALID',
+        message: 'Este link de envio expirou, ja foi utilizado ou nao e valido. Solicite um novo link ao escritorio.'
+      });
+    }
+    sendSuccess(req, res, {
+      data: { documentName: link.document_name, caseTitle: link.case_title, clientName: link.client_name }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post('/api/document-upload-link/upload', upload.single('file'), async (req, res, next) => {
+  const db = await pool.getConnection();
+  try {
+    await db.beginTransaction();
+    const token = sanitizeTextInput(req.body.token, 500);
+    const link = await fetchDocumentUploadLink(token);
+    if (!req.file) {
+      await db.rollback();
+      return sendError(req, res, { status: 400, code: 'VALIDATION_ERROR', message: 'Envie um arquivo para concluir o upload.' });
+    }
+    if (!link) {
+      await db.rollback();
+      await fs.unlink(req.file.path).catch(() => {});
+      return sendError(req, res, {
+        status: 404,
+        code: 'DOCUMENT_UPLOAD_LINK_INVALID',
+        message: 'Este link de envio expirou, ja foi utilizado ou nao e valido. Solicite um novo link ao escritorio.'
+      });
+    }
+
+    const [result] = await db.query(
+      `UPDATE documents
+       SET status = 'received', reviewed_by_user_id = NULL, reviewed_at = NULL, status_note = '',
+           resend_requested_at = NULL, resend_note = NULL, file_name = ?, file_path = ?, mime_type = ?, file_size = ?, uploaded_at = NOW()
+       WHERE id = ? AND status = 'pending'`,
+      [
+        sanitizeTextInput(req.file.originalname, 500),
+        sanitizeTextInput(req.file.filename, 255),
+        sanitizeTextInput(req.file.mimetype, 255),
+        req.file.size,
+        link.document_id
+      ]
+    );
+    if (!result.affectedRows) {
+      await db.rollback();
+      await fs.unlink(req.file.path).catch(() => {});
+      return sendError(req, res, { status: 409, code: 'DOCUMENT_ALREADY_SENT', message: 'Este documento ja foi enviado.' });
+    }
+    await db.query('UPDATE document_upload_links SET used_at = NOW() WHERE document_id = ? AND used_at IS NULL', [link.document_id]);
+    await recordDocumentAudit(db, req, {
+      documentId: link.document_id,
+      officeId: link.office_id,
+      action: 'document_updated',
+      metadata: {
+        changeType: 'file_uploaded_via_secure_link',
+        status: 'received',
+        fileName: sanitizeTextInput(req.file.originalname, 500),
+        fileSize: req.file.size,
+        mimeType: sanitizeTextInput(req.file.mimetype, 255)
+      }
+    });
+    await db.commit();
+    sendSuccess(req, res, { data: { message: 'Arquivo enviado com sucesso.' } });
+  } catch (error) {
+    await db.rollback();
+    if (req.file?.path) await fs.unlink(req.file.path).catch(() => {});
+    next(error);
+  } finally {
+    db.release();
   }
 });
 
@@ -2947,7 +3128,7 @@ app.post('/api/team/users', requireAuth, requirePermission('manageOfficeUsers'),
 
     let linkedClientId = null;
     if (role === 'client') {
-      linkedClientId = (await upsertClient(db, req.user.office_id, clientName))?.id || null;
+      linkedClientId = (await upsertClient(db, req.user.office_id, clientName, email))?.id || null;
     }
 
     const [[userIdResult]] = await db.query('SELECT UUID() AS id');
@@ -3072,7 +3253,7 @@ app.patch('/api/team/users/:id', requireAuth, requirePermission('manageOfficeUse
       }
     }
 
-    const linkedClient = role === 'client' ? await upsertClient(db, req.user.office_id, clientName) : null;
+    const linkedClient = role === 'client' ? await upsertClient(db, req.user.office_id, clientName, email) : null;
     await db.query(
       `UPDATE users
        SET full_name = ?, email = ?, role = ?, client_id = ?
@@ -3215,7 +3396,10 @@ app.get('/styles.css', (_req, res) => res.sendFile(path.join(__dirname, 'styles.
 app.get('/app.js', (_req, res) => res.sendFile(path.join(__dirname, 'app.js')));
 app.get('/marketing.css', (_req, res) => res.sendFile(path.join(__dirname, 'marketing.css')));
 app.get('/marketing.js', (_req, res) => res.sendFile(path.join(__dirname, 'marketing.js')));
+app.get('/document-upload.css', (_req, res) => res.sendFile(path.join(__dirname, 'document-upload.css')));
+app.get('/document-upload.js', (_req, res) => res.sendFile(path.join(__dirname, 'document-upload.js')));
 app.get('/app', requireAuth, (_req, res) => res.sendFile(path.join(__dirname, 'index.html')));
+app.get('/enviar-documento', (_req, res) => res.sendFile(path.join(__dirname, 'document-upload.html')));
 app.get('*', (_req, res) => res.sendFile(path.join(__dirname, 'home.html')));
 
 ensureUploadsDirectory()

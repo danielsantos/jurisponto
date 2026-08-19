@@ -38,6 +38,7 @@ No servidor, nao execute o conteiner `db` se o MySQL ja estiver instalado. Defin
 - Documentos pendentes.
 - Criacao de casos e clientes.
 - Registro de envio de lembrete.
+- E-mail de solicitacao, lembrete e reenvio de documento, com link seguro de uso unico para upload.
 - Isolamento de clientes, casos e documentos por escritorio.
 - Perfis e permissoes por tipo de usuario.
 
@@ -49,6 +50,12 @@ No servidor, nao execute o conteiner `db` se o MySQL ja estiver instalado. Defin
 O cadastro cria um escritorio e um usuario administrador com senha protegida por hash no MySQL. Antes do primeiro login, o usuario confirma o e-mail com um codigo de seis digitos valido por 15 minutos. A recuperacao de senha usa o mesmo padrao e invalida sessoes anteriores quando a senha e alterada. Com `EMAIL_PROVIDER=development`, os codigos aparecem na propria tela e no terminal; a integracao com Resend ja esta preparada pelas variaveis de ambiente.
 
 Cada conta pertence a um escritorio. Clientes sao vinculados ao escritorio e toda consulta de casos, documentos e lembretes e filtrada pelo escritorio do usuario autenticado. O sistema diferencia os perfis `admin`, `lawyer`, `assistant` e `client`; clientes enxergam apenas os proprios casos e documentos. Administradores podem criar novos acessos pelo painel.
+
+## Envio seguro de documentos
+
+Ao solicitar um documento, aplicar um checklist, enviar um lembrete ou pedir reenvio, o sistema usa o e-mail cadastrado no cliente para enviar um link individual de upload. O link vale por 7 dias, pode enviar somente aquele documento e deixa de funcionar logo após o envio. Por isso, o cliente nao precisa ter uma conta no portal para enviar o arquivo.
+
+Para enviar e-mails reais, configure um dominio e defina `EMAIL_PROVIDER=resend`, `RESEND_API_KEY`, `EMAIL_FROM` e `APP_URL` no ambiente de producao. Enquanto `EMAIL_PROVIDER=development`, a mensagem e o link sao exibidos apenas no log do servidor.
 
 ## Observabilidade operacional
 
