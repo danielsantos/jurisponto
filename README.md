@@ -57,6 +57,8 @@ Ao solicitar um documento, aplicar um checklist, enviar um lembrete ou pedir ree
 
 Os arquivos enviados nao sao publicados como arquivos estaticos. O download acontece exclusivamente por `/api/documents/:id/download`, que exige sessao autenticada, valida o escopo do escritorio (e do proprio cliente, quando aplicavel) e registra o evento na auditoria.
 
+Os uploads aceitam somente PDF, PNG, JPG, DOC e DOCX de ate 10 MB. Alem do tipo declarado pelo navegador, o servidor verifica extensao e assinatura do arquivo. Quando um documento e substituido, a versao anterior e removida do disco depois que a nova versao e gravada com sucesso.
+
 Para enviar e-mails reais, configure um dominio e defina `EMAIL_PROVIDER=resend`, `RESEND_API_KEY`, `EMAIL_FROM` e `APP_URL` no ambiente de producao. Enquanto `EMAIL_PROVIDER=development`, a mensagem e o link sao exibidos apenas no log do servidor.
 
 ## Observabilidade operacional
@@ -67,6 +69,10 @@ Defina o destino dos logs pelo ambiente:
 
 - `LOG_DESTINATION=console`: envia JSON para stdout/stderr, ideal para desenvolvimento e containers.
 - `LOG_DESTINATION=file`: grava em `LOG_FILE_PATH` (padrao `./logs/app.log`), preparando o projeto para plugar um coletor externo depois.
+
+## Protecoes da aplicacao
+
+As rotas de cadastro, login, confirmacao de e-mail e recuperacao de senha possuem limite por IP para conter tentativas automatizadas. Em producao atras de um unico proxy reverso confiavel, defina `TRUST_PROXY=1` para que o Express use o IP real do visitante. As respostas tambem enviam cabecalhos para evitar inclusao em iframes, interpretacao indevida de tipos de arquivo e cache de respostas da API.
 
 ## Auditoria de documentos
 

@@ -23,6 +23,8 @@ const {
 } = require('./server-helpers');
 
 const app = express();
+app.disable('x-powered-by');
+if (process.env.TRUST_PROXY === '1') app.set('trust proxy', 1);
 const port = process.env.PORT || 3000;
 const pool = createDatabasePool();
 const sessionDuration = 7 * 24 * 60 * 60 * 1000;
@@ -35,13 +37,15 @@ const logFilePath = process.env.LOG_FILE_PATH
   ? path.resolve(__dirname, process.env.LOG_FILE_PATH)
   : path.join(logsDirectory, 'app.log');
 const allowedRoles = new Set(['admin', 'lawyer', 'assistant', 'client']);
-const allowedUploadMimeTypes = new Set([
-  'application/pdf',
-  'image/png',
-  'image/jpeg',
-  'application/msword',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+const allowedUploadTypes = new Map([
+  ['application/pdf', { extensions: new Set(['.pdf']), signature: (buffer) => buffer.subarray(0, 5).toString('ascii') === '%PDF-' }],
+  ['image/png', { extensions: new Set(['.png']), signature: (buffer) => buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) }],
+  ['image/jpeg', { extensions: new Set(['.jpg', '.jpeg']), signature: (buffer) => buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff }],
+  ['application/msword', { extensions: new Set(['.doc']), signature: (buffer) => buffer.subarray(0, 8).equals(Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1])) }],
+  ['application/vnd.openxmlformats-officedocument.wordprocessingml.document', { extensions: new Set(['.docx']), signature: (buffer) => buffer.length >= 4 && buffer[0] === 0x50 && buffer[1] === 0x4b && [0x03, 0x05, 0x07].includes(buffer[2]) && [0x04, 0x06, 0x08].includes(buffer[3]) }]
 ]);
+const authRateLimitBuckets = new Map();
+let lastAuthRateLimitCleanup = 0;
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const hexColorPattern = /^#[0-9a-f]{6}$/i;
 const phonePattern = /^[0-9+\-() ]{8,30}$/;
@@ -55,7 +59,7 @@ const upload = multer({
     }
   }),
   fileFilter: (_req, file, callback) => {
-    if (!allowedUploadMimeTypes.has(file.mimetype)) {
+    if (!allowedUploadTypes.has(file.mimetype)) {
       return callback(new Error('Tipo de arquivo nao permitido. Envie PDF, PNG, JPG, DOC ou DOCX.'));
     }
     return callback(null, true);
@@ -135,6 +139,63 @@ class ApiError extends Error {
   }
 }
 
+function createAuthRateLimiter({ name, maxAttempts, windowMs }) {
+  return (req, res, next) => {
+    const now = Date.now();
+    if (now - lastAuthRateLimitCleanup > windowMs) {
+      for (const [key, entry] of authRateLimitBuckets) {
+        if (entry.resetAt <= now) authRateLimitBuckets.delete(key);
+      }
+      lastAuthRateLimitCleanup = now;
+    }
+
+    const ip = req.ip || req.socket?.remoteAddress || 'unknown';
+    const key = `${name}:${ip}`;
+    const entry = authRateLimitBuckets.get(key);
+    if (entry && entry.resetAt > now && entry.count >= maxAttempts) {
+      res.set('Retry-After', String(Math.ceil((entry.resetAt - now) / 1000)));
+      return sendError(req, res, {
+        status: 429,
+        code: 'RATE_LIMITED',
+        message: 'Muitas tentativas. Aguarde alguns minutos antes de tentar novamente.'
+      });
+    }
+
+    if (entry && entry.resetAt > now) entry.count += 1;
+    else authRateLimitBuckets.set(key, { count: 1, resetAt: now + windowMs });
+    return next();
+  };
+}
+
+async function validateUploadedFile(file) {
+  const type = allowedUploadTypes.get(file?.mimetype);
+  const extension = path.extname(file?.originalname || '').toLowerCase();
+  if (!type || !type.extensions.has(extension)) {
+    throw new ApiError(400, 'INVALID_FILE_TYPE', 'Tipo de arquivo nao permitido. Envie PDF, PNG, JPG, DOC ou DOCX.');
+  }
+
+  const handle = await fs.open(file.path, 'r');
+  try {
+    const header = Buffer.alloc(16);
+    const { bytesRead } = await handle.read(header, 0, header.length, 0);
+    if (!type.signature(header.subarray(0, bytesRead))) {
+      throw new ApiError(400, 'INVALID_FILE_CONTENT', 'O conteudo do arquivo nao corresponde ao tipo informado.');
+    }
+  } finally {
+    await handle.close();
+  }
+}
+
+async function removeStoredUpload(filePath) {
+  const fileName = path.basename(sanitizeTextInput(filePath, 255));
+  if (!fileName || fileName !== filePath) return;
+  await fs.unlink(path.join(uploadsDirectory, fileName)).catch((error) => {
+    if (error.code !== 'ENOENT') {
+      logEvent('error', 'document_file_cleanup_failed', { fileName }, { error: serializeError(error) });
+    }
+  });
+}
+
 function buildRequestContext(req) {
   return {
     requestId: req.requestId,
@@ -146,9 +207,7 @@ function buildRequestContext(req) {
 }
 
 function getRequestIp(req) {
-  const forwardedFor = sanitizeTextInput(req.headers['x-forwarded-for'], 255);
-  const candidate = forwardedFor.split(',')[0] || req.ip || req.socket?.remoteAddress || '';
-  return sanitizeTextInput(candidate, 45) || null;
+  return sanitizeTextInput(req.ip || req.socket?.remoteAddress || '', 45) || null;
 }
 
 function getRequestUserAgent(req) {
@@ -740,7 +799,7 @@ async function notifyClientAboutDocument(req, { documentId, clientEmail, clientN
 async function fetchDocumentUploadLink(token) {
   if (!token || token.length < 40) return null;
   const [rows] = await pool.query(
-    `SELECT l.id AS link_id, l.document_id, d.name AS document_name, d.status, c.title AS case_title, cl.name AS client_name, cl.office_id
+    `SELECT l.id AS link_id, l.document_id, d.name AS document_name, d.status, d.file_path, c.title AS case_title, cl.name AS client_name, cl.office_id
      FROM document_upload_links l
      JOIN documents d ON d.id = l.document_id
      JOIN cases c ON c.id = d.case_id
@@ -849,6 +908,18 @@ app.use((req, _res, next) => {
   req.startedAt = Date.now();
   next();
 });
+app.use((req, res, next) => {
+  res.set({
+    'Cross-Origin-Opener-Policy': 'same-origin',
+    'Cross-Origin-Resource-Policy': 'same-origin',
+    'Permissions-Policy': 'camera=(), geolocation=(), microphone=()',
+    'Referrer-Policy': 'strict-origin-when-cross-origin',
+    'X-Content-Type-Options': 'nosniff',
+    'X-Frame-Options': 'DENY'
+  });
+  if (req.path.startsWith('/api/')) res.set('Cache-Control', 'no-store');
+  next();
+});
 // Nunca exponha esta pasta como arquivo estático. Documentos jurídicos só podem
 // ser obtidos pela rota autenticada /api/documents/:id/download, que aplica o
 // escopo do escritório/cliente e registra a auditoria do download.
@@ -943,7 +1014,7 @@ app.get('/api/health', async (_req, res, next) => {
   }
 });
 
-app.post('/api/auth/signup', async (req, res, next) => {
+app.post('/api/auth/signup', createAuthRateLimiter({ name: 'signup', maxAttempts: 5, windowMs: 15 * 60 * 1000 }), async (req, res, next) => {
   let fullName;
   let officeName;
   let email;
@@ -1024,7 +1095,7 @@ app.post('/api/auth/signup', async (req, res, next) => {
   }
 });
 
-app.post('/api/auth/verify-email', async (req, res, next) => {
+app.post('/api/auth/verify-email', createAuthRateLimiter({ name: 'verify-email', maxAttempts: 10, windowMs: 15 * 60 * 1000 }), async (req, res, next) => {
   const email = normalizeEmail(req.body.email);
   const code = sanitizeTextInput(req.body.code, 6);
   if (!email || !/^\d{6}$/.test(code || '')) {
@@ -1103,7 +1174,7 @@ app.post('/api/auth/verify-email', async (req, res, next) => {
   }
 });
 
-app.post('/api/auth/resend-verification', async (req, res, next) => {
+app.post('/api/auth/resend-verification', createAuthRateLimiter({ name: 'resend-verification', maxAttempts: 5, windowMs: 15 * 60 * 1000 }), async (req, res, next) => {
   const email = normalizeEmail(req.body.email);
   if (!isValidEmail(email)) {
     return sendError(req, res, {
@@ -1151,7 +1222,7 @@ app.post('/api/auth/resend-verification', async (req, res, next) => {
   }
 });
 
-app.post('/api/auth/request-password-reset', async (req, res, next) => {
+app.post('/api/auth/request-password-reset', createAuthRateLimiter({ name: 'request-password-reset', maxAttempts: 5, windowMs: 15 * 60 * 1000 }), async (req, res, next) => {
   const email = normalizeEmail(req.body.email);
   const genericResponse = { message: 'Se houver uma conta com este e-mail, enviaremos um codigo de redefinicao.' };
   if (!isValidEmail(email)) {
@@ -1196,7 +1267,7 @@ app.post('/api/auth/request-password-reset', async (req, res, next) => {
   }
 });
 
-app.post('/api/auth/reset-password', async (req, res, next) => {
+app.post('/api/auth/reset-password', createAuthRateLimiter({ name: 'reset-password', maxAttempts: 10, windowMs: 15 * 60 * 1000 }), async (req, res, next) => {
   const email = normalizeEmail(req.body.email);
   const code = sanitizeTextInput(req.body.code, 6);
   let password;
@@ -1272,7 +1343,7 @@ app.post('/api/auth/reset-password', async (req, res, next) => {
   }
 });
 
-app.post('/api/auth/login', async (req, res, next) => {
+app.post('/api/auth/login', createAuthRateLimiter({ name: 'login', maxAttempts: 10, windowMs: 15 * 60 * 1000 }), async (req, res, next) => {
   const email = normalizeEmail(req.body.email);
   const password = typeof req.body.password === 'string' ? req.body.password : null;
   if (!isValidEmail(email) || !password) {
@@ -2860,6 +2931,7 @@ app.post('/api/document-upload-link/upload', upload.single('file'), async (req, 
       await db.rollback();
       return sendError(req, res, { status: 400, code: 'VALIDATION_ERROR', message: 'Envie um arquivo para concluir o upload.' });
     }
+    await validateUploadedFile(req.file);
     if (!link) {
       await db.rollback();
       await fs.unlink(req.file.path).catch(() => {});
@@ -2902,6 +2974,7 @@ app.post('/api/document-upload-link/upload', upload.single('file'), async (req, 
       }
     });
     await db.commit();
+    if (link.file_path && link.file_path !== req.file.filename) await removeStoredUpload(link.file_path);
     sendSuccess(req, res, { data: { message: 'Arquivo enviado com sucesso.' } });
   } catch (error) {
     await db.rollback();
@@ -2925,6 +2998,7 @@ app.post('/api/documents/:id/upload', requireAuth, upload.single('file'), async 
         message: 'Envie um arquivo para concluir o upload.'
       });
     }
+    await validateUploadedFile(req.file);
 
     const document = await fetchDocumentById(req.user, documentId);
     if (!document) {
@@ -2986,6 +3060,7 @@ app.post('/api/documents/:id/upload', requireAuth, upload.single('file'), async 
       }
     });
     await db.commit();
+    if (document.file_path && document.file_path !== req.file.filename) await removeStoredUpload(document.file_path);
 
     sendSuccess(req, res, {
       data: formatDocument({
