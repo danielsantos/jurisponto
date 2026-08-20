@@ -1,0 +1,24 @@
+services:
+  app:
+    build: .
+    container_name: rotadocaso-app
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    environment:
+      # Dentro do container, o processo deve escutar na interface interna.
+      # A publicacao continua restrita ao loopback do VPS pela regra de ports.
+      HOST: 0.0.0.0
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    # O Nginx do VPS e o unico processo exposto publicamente. Manter esta porta
+    # em loopback evita que a aplicacao seja acessada sem passar pelo proxy.
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - app_uploads:/app/uploads
+      - app_logs:/app/logs
+
+volumes:
+  app_uploads:
+  app_logs:

@@ -1,0 +1,11 @@
+.git
+.agents
+node_modules
+.env
+.env.*
+!.env.example
+uploads
+logs
+npm-debug.log*
+*.log
+deploy

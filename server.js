@@ -26,6 +26,7 @@ const app = express();
 app.disable('x-powered-by');
 if (process.env.TRUST_PROXY === '1') app.set('trust proxy', 1);
 const port = process.env.PORT || 3000;
+const host = process.env.HOST;
 const pool = createDatabasePool();
 const sessionDuration = 7 * 24 * 60 * 60 * 1000;
 const verificationCodeDuration = 15 * 60 * 1000;
@@ -3506,9 +3507,10 @@ app.get('*', (_req, res) => res.sendFile(path.join(__dirname, 'home.html')));
 
 ensureUploadsDirectory()
   .then(() => {
-    app.listen(port, () => {
+    app.listen(port, host || undefined, () => {
       logEvent('info', 'server_started', {
         port,
+        host: host || null,
         logDestination,
         logFilePath: logDestination === 'file' ? logFilePath : null
       });
