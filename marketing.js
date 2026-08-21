@@ -197,7 +197,6 @@ document.addEventListener('click', (event) => {
   button.setAttribute('title', visible ? 'Ocultar senha' : 'Mostrar senha');
   button.textContent = visible ? '◉' : '👁';
 });
-loginForm.querySelector('a').addEventListener('click', (event) => { event.preventDefault(); showPasswordResetRequest(); });
 
 signupForm.querySelector('form').addEventListener('submit', async (event) => {
   event.preventDefault();

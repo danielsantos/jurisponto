@@ -3499,9 +3499,12 @@ app.get('/styles.css', (_req, res) => res.sendFile(path.join(__dirname, 'styles.
 app.get('/app.js', (_req, res) => res.sendFile(path.join(__dirname, 'app.js')));
 app.get('/marketing.css', (_req, res) => res.sendFile(path.join(__dirname, 'marketing.css')));
 app.get('/marketing.js', (_req, res) => res.sendFile(path.join(__dirname, 'marketing.js')));
+app.get('/password-reset.css', (_req, res) => res.sendFile(path.join(__dirname, 'password-reset.css')));
+app.get('/password-reset.js', (_req, res) => res.sendFile(path.join(__dirname, 'password-reset.js')));
 app.get('/document-upload.css', (_req, res) => res.sendFile(path.join(__dirname, 'document-upload.css')));
 app.get('/document-upload.js', (_req, res) => res.sendFile(path.join(__dirname, 'document-upload.js')));
 app.get('/app', requireAuth, (_req, res) => res.sendFile(path.join(__dirname, 'index.html')));
+app.get('/redefinir-senha', (_req, res) => res.sendFile(path.join(__dirname, 'password-reset.html')));
 app.get('/enviar-documento', (_req, res) => res.sendFile(path.join(__dirname, 'document-upload.html')));
 app.get('*', (_req, res) => res.sendFile(path.join(__dirname, 'home.html')));
 
