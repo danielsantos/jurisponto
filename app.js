@@ -118,7 +118,7 @@ function documentStatusLabel(status) {
 }
 
 function caseRow(item) {
-  const typeClass = ['waiting', 'review', 'done'].includes(item.type) ? item.type : 'waiting';
+  const typeClass = ['analysis', 'active', 'waiting', 'closed'].includes(item.type) ? item.type : 'waiting';
   return `
     <tr>
       <td>
@@ -147,9 +147,10 @@ function caseRow(item) {
 function updateCaseFilters() {
   const totals = {
     all: cases.filter((item) => !item.archived).length,
+    analysis: cases.filter((item) => item.type === 'analysis' && !item.archived).length,
+    active: cases.filter((item) => item.type === 'active' && !item.archived).length,
     waiting: cases.filter((item) => item.type === 'waiting' && !item.archived).length,
-    review: cases.filter((item) => item.type === 'review' && !item.archived).length,
-    done: cases.filter((item) => item.type === 'done' && !item.archived).length
+    closed: cases.filter((item) => item.type === 'closed' && !item.archived).length
   };
 
   document.querySelectorAll('.filter').forEach((button) => {
@@ -170,7 +171,7 @@ function renderCases(list = getVisibleCases()) {
 
   $('#cases-table').innerHTML = previewCases.map(caseRow).join('') || '<tr><td colspan="6">Nenhum caso encontrado.</td></tr>';
   $('#all-cases-table').innerHTML = list.map(caseRow).join('') || '<tr><td colspan="6">Nenhum caso encontrado.</td></tr>';
-  $('#active-cases').textContent = activeCases.filter((item) => item.type !== 'done').length;
+  $('#active-cases').textContent = activeCases.filter((item) => item.type !== 'closed').length;
 
   const datedCases = activeCases.filter((item) => item.dueDate).sort((a, b) => a.dueDate.localeCompare(b.dueDate));
   $('#next-deadline').textContent = datedCases[0]?.due || 'Sem prazo';
@@ -898,16 +899,45 @@ function fillCaseDetailForm(caseDetail) {
   const form = $('#case-detail-form');
   form.elements.caseId.value = caseDetail.id;
   form.elements.title.value = caseDetail.title || '';
-  form.elements.statusKey.value = caseDetail.type || 'waiting';
+  form.elements.legalArea.value = caseDetail.legalArea || '';
+  form.elements.description.value = caseDetail.description || '';
+  form.elements.opposingParty.value = caseDetail.opposingParty || '';
+  form.elements.processNumber.value = caseDetail.processNumber || '';
+  form.elements.statusKey.value = caseDetail.type || 'analysis';
   form.elements.responsibleUserId.value = caseDetail.responsibleUserId || '';
   form.elements.dueDate.value = caseDetail.dueDate || '';
   form.elements.internalNotes.value = caseDetail.internalNotes || '';
+  form.elements.closedAt.value = caseDetail.closedAt || '';
+  form.elements.closureResult.value = caseDetail.closureResult || '';
+  form.elements.closureReason.value = caseDetail.closureReason || '';
+  form.elements.closureFinancialStatus.value = caseDetail.closureFinancialStatus || 'unknown';
+  form.elements.closureNotes.value = caseDetail.closureNotes || '';
   $('#case-task-form').elements.caseId.value = caseDetail.id;
   $('#case-detail-client-chip').textContent = caseDetail.client;
   $('#case-detail-docs-chip').textContent = `${caseDetail.docs[0]}/${caseDetail.docs[1]} docs`;
-  $('#case-detail-archive-chip').textContent = caseDetail.archived ? 'Arquivado' : 'Ativo';
-  $('#case-archive-toggle').textContent = caseDetail.archived ? 'Reabrir caso' : 'Arquivar caso';
+  $('#case-detail-archive-chip').textContent = caseDetail.type === 'closed' ? 'Encerrado' : 'Ativo';
+  updateClosureFields();
   renderCaseTasks();
+}
+
+function updateClosureFields() {
+  const form = $('#case-detail-form');
+  const isClosed = form.elements.statusKey.value === 'closed';
+  $('#case-closure-fields').hidden = !isClosed;
+  form.elements.closedAt.required = isClosed;
+  form.elements.closureResult.required = isClosed;
+  form.elements.closureReason.required = isClosed;
+  if (!isClosed) return;
+
+  const pendingTasks = (activeCaseDetail?.tasks || []).filter((task) => !task.done).length;
+  const pendingDocuments = Math.max(0, (activeCaseDetail?.docs?.[1] || 0) - (activeCaseDetail?.docs?.[0] || 0));
+  const pendingItems = [
+    pendingTasks && `${pendingTasks} tarefa${pendingTasks === 1 ? '' : 's'} pendente${pendingTasks === 1 ? '' : 's'}`,
+    pendingDocuments && `${pendingDocuments} documento${pendingDocuments === 1 ? '' : 's'} pendente${pendingDocuments === 1 ? '' : 's'}`
+  ].filter(Boolean);
+  $('#case-closure-warning').textContent = pendingItems.length
+    ? `Atenção: há ${pendingItems.join(' e ')}. Você pode encerrar o caso mesmo assim.`
+    : 'Nenhuma tarefa ou documento pendente identificado neste caso.';
 }
 
 async function openCaseDetail(caseId) {
@@ -1016,7 +1046,11 @@ $('#case-form').addEventListener('submit', async (event) => {
         title: data.get('title'),
         dueDate: data.get('due'),
         responsibleUserId: data.get('responsibleUserId'),
-        internalNotes: data.get('internalNotes')
+        internalNotes: data.get('internalNotes'),
+        legalArea: data.get('legalArea'),
+        description: data.get('description'),
+        opposingParty: data.get('opposingParty'),
+        processNumber: data.get('processNumber')
       })
     });
     form.reset();
@@ -1415,23 +1449,7 @@ $('#case-detail-form').addEventListener('submit', async (event) => {
   }
 });
 
-$('#case-archive-toggle').addEventListener('click', async () => {
-  if (!activeCaseDetail?.id) return;
-  const archive = !activeCaseDetail.archived;
-
-  try {
-    await api(`/api/cases/${encodeURIComponent(activeCaseDetail.id)}/archive`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ archive })
-    });
-    await loadCases();
-    await refreshCaseDetail();
-    showToast(archive ? 'Caso arquivado com historico preservado.' : 'Caso reaberto com sucesso.');
-  } catch (error) {
-    showToast(error.message);
-  }
-});
+$('#case-status-select').addEventListener('change', updateClosureFields);
 
 $('#case-task-form').addEventListener('submit', async (event) => {
   event.preventDefault();

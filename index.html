@@ -129,7 +129,7 @@
 
         <section id="cases-view" class="view">
           <div class="content-title"><div><p class="eyebrow">GESTAO DE CASOS</p><h1>Casos em andamento</h1><p class="subcopy">Acompanhe documentos, responsaveis e proximos passos.</p></div><button class="new-case" id="new-case-secondary">+ Novo caso</button></div>
-          <section class="panel cases-full"><div class="filter-row"><button class="filter selected" data-filter="all">Todos <span>0</span></button><button class="filter" data-filter="waiting">Aguardando cliente <span>0</span></button><button class="filter" data-filter="review">Em analise <span>0</span></button><button class="filter" data-filter="done">Concluidos <span>0</span></button><label class="search"><span>?</span><input id="case-search" placeholder="Buscar cliente, caso ou documento" /></label><label class="inline-select"><span>Responsavel</span><select id="case-responsible-filter"><option value="">Todos</option></select></label><label class="inline-select"><span>Prazo</span><select id="case-due-filter"><option value="">Todos</option><option value="overdue">Atrasados</option><option value="today">Hoje</option><option value="week">Proximos 7 dias</option><option value="none">Sem prazo</option></select></label><label class="inline-select"><span>Arquivo</span><select id="case-archived-filter"><option value="false">Ativos</option><option value="all">Todos</option><option value="true">Arquivados</option></select></label></div><div class="table-wrap"><table><thead><tr><th>CLIENTE</th><th>CASO</th><th>STATUS</th><th>RESPONSAVEL</th><th>PROXIMO PRAZO</th><th></th></tr></thead><tbody id="all-cases-table"></tbody></table></div></section>
+          <section class="panel cases-full"><div class="filter-row"><button class="filter selected" data-filter="all">Todos <span>0</span></button><button class="filter" data-filter="analysis">Em analise <span>0</span></button><button class="filter" data-filter="active">Em andamento <span>0</span></button><button class="filter" data-filter="waiting">Aguardando <span>0</span></button><button class="filter" data-filter="closed">Encerrados <span>0</span></button><label class="search"><span>?</span><input id="case-search" placeholder="Buscar cliente, caso ou documento" /></label><label class="inline-select"><span>Responsavel</span><select id="case-responsible-filter"><option value="">Todos</option></select></label><label class="inline-select"><span>Prazo</span><select id="case-due-filter"><option value="">Todos</option><option value="overdue">Atrasados</option><option value="today">Hoje</option><option value="week">Proximos 7 dias</option><option value="none">Sem prazo</option></select></label><label class="inline-select"><span>Arquivo</span><select id="case-archived-filter"><option value="false">Ativos</option><option value="all">Todos</option><option value="true">Arquivados</option></select></label></div><div class="table-wrap"><table><thead><tr><th>CLIENTE</th><th>CASO</th><th>STATUS</th><th>RESPONSAVEL</th><th>PROXIMO PRAZO</th><th></th></tr></thead><tbody id="all-cases-table"></tbody></table></div></section>
         </section>
 
         <section id="documents-view" class="view">
@@ -259,7 +259,11 @@
             <label>E-mail para documentos<input name="clientEmail" type="email" placeholder="juliana@email.com" /></label>
           </div>
           <label>Titulo do caso<input required name="title" placeholder="Ex.: Revisao de contrato" /></label>
-          <label>Proximo prazo<input required name="due" type="date" /></label>
+          <label>Area juridica<input name="legalArea" placeholder="Ex.: Familia, Trabalhista, Civel" /></label>
+          <label>Descricao<textarea name="description" rows="3" placeholder="Resumo do atendimento e objetivo do caso"></textarea></label>
+          <label>Parte contraria<input name="opposingParty" placeholder="Nome da pessoa ou empresa, se houver" /></label>
+          <label>Numero do processo <small>(opcional)</small><input name="processNumber" placeholder="Ex.: 0000000-00.0000.0.00.0000" /></label>
+          <label>Proximo prazo<input name="due" type="date" /></label>
           <label>Responsavel<select name="responsibleUserId" id="case-create-responsible"><option value="">Definir depois</option></select></label>
           <label>Observacoes internas<textarea name="internalNotes" rows="3" placeholder="Contexto interno do atendimento"></textarea></label>
           <button class="new-case" type="submit">Criar caso -></button>
@@ -272,14 +276,27 @@
         <button class="close-modal" id="close-case-detail-modal" aria-label="Fechar">x</button>
         <p class="eyebrow">GESTAO DO CASO</p>
         <h2 id="case-detail-title">Editar caso</h2>
-        <p>Atualize status, responsavel, prazo, observacoes e os proximos passos sem perder o historico.</p>
+        <p>Atualize os dados juridicos, o status e os proximos passos sem perder o historico.</p>
         <form id="case-detail-form">
           <input type="hidden" name="caseId" />
           <label>Titulo do caso<input required name="title" /></label>
-          <label>Status<select name="statusKey"><option value="waiting">Aguardando cliente</option><option value="review">Em analise</option><option value="done">Concluido</option></select></label>
+          <label>Area juridica<input name="legalArea" placeholder="Ex.: Familia, Trabalhista, Civel" /></label>
+          <label>Descricao<textarea name="description" rows="3" placeholder="Resumo do atendimento e objetivo do caso"></textarea></label>
+          <label>Parte contraria<input name="opposingParty" /></label>
+          <label>Numero do processo <small>(opcional)</small><input name="processNumber" /></label>
+          <label>Status<select name="statusKey" id="case-status-select"><option value="analysis">Em analise</option><option value="active">Em andamento</option><option value="waiting">Aguardando</option><option value="closed">Encerrado</option></select></label>
           <label>Responsavel<select name="responsibleUserId" id="case-edit-responsible"><option value="">Sem responsavel</option></select></label>
           <label>Prazo<input name="dueDate" type="date" /></label>
           <label>Observacoes internas<textarea name="internalNotes" rows="4"></textarea></label>
+          <section id="case-closure-fields" class="case-closure-fields" hidden>
+            <h3>Encerramento do caso</h3>
+            <p id="case-closure-warning">O encerramento nao bloqueia o caso se ainda houver tarefas ou documentos pendentes.</p>
+            <label>Data de encerramento<input name="closedAt" type="date" /></label>
+            <label>Resultado<input name="closureResult" placeholder="Ex.: Acordo homologado" /></label>
+            <label>Motivo do encerramento<input name="closureReason" placeholder="Ex.: Obrigacao cumprida" /></label>
+            <label>Situacao financeira<select name="closureFinancialStatus"><option value="unknown">Nao informada</option><option value="pending">Pendente</option><option value="settled">Quitada</option></select></label>
+            <label>Observacao final<textarea name="closureNotes" rows="3" placeholder="Informacoes relevantes para consulta futura"></textarea></label>
+          </section>
           <div class="case-modal-metrics">
             <span class="client-chip" id="case-detail-client-chip">Cliente</span>
             <span class="client-chip" id="case-detail-docs-chip">0/0 docs</span>
@@ -287,7 +304,6 @@
           </div>
           <div class="form-actions">
             <button class="new-case" type="submit" id="case-detail-submit">Salvar caso -></button>
-            <button class="secondary-button" type="button" id="case-archive-toggle">Arquivar caso</button>
           </div>
         </form>
         <section class="case-task-section">

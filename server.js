@@ -78,9 +78,10 @@ const roleLabels = {
 };
 
 const caseStatusLabels = {
-  waiting: 'Aguardando cliente',
-  review: 'Em analise',
-  done: 'Concluido'
+  analysis: 'Em analise',
+  active: 'Em andamento',
+  waiting: 'Aguardando',
+  closed: 'Encerrado'
 };
 
 const allowedCaseStatusKeys = new Set(Object.keys(caseStatusLabels));
@@ -368,6 +369,14 @@ function parseCaseStatusKey(value) {
   return normalized;
 }
 
+function parseClosureFinancialStatus(value) {
+  const normalized = sanitizeTextInput(value, 20);
+  if (!['pending', 'settled', 'unknown'].includes(normalized)) {
+    throw new Error('Situacao financeira do encerramento invalida.');
+  }
+  return normalized;
+}
+
 function parseDocumentStatus(value) {
   const normalized = sanitizeTextInput(value, 20);
   if (!allowedDocumentStatuses.has(normalized)) throw new Error('Status do documento invalido.');
@@ -571,7 +580,9 @@ async function assertResponsibleUser(db, officeId, userId) {
 async function fetchCaseSummary(db, user, caseId) {
   const scope = getCaseScope(user);
   const [rows] = await db.query(
-    `SELECT c.id, c.client_id, c.title, c.status, c.status_key, c.due_date, c.internal_notes, c.archived_at,
+    `SELECT c.id, c.client_id, c.title, c.legal_area, c.case_description, c.opposing_party, c.process_number,
+            c.status, c.status_key, c.due_date, c.internal_notes, c.archived_at, c.closed_at, c.closure_result,
+            c.closure_notes, c.closure_reason, c.closure_financial_status,
             c.responsible_user_id, cl.name AS client_name, cl.avatar_color, u.full_name AS responsible_name,
             COUNT(CASE WHEN d.status = 'received' THEN 1 END) AS completed_documents,
             COUNT(d.id) AS total_documents,
@@ -993,6 +1004,10 @@ const toCase = (row) => ({
   initials: row.client_name.split(' ').map((part) => part[0]).slice(0, 2).join(''),
   color: sanitizeAvatarColor(row.avatar_color),
   title: row.title,
+  legalArea: row.legal_area || '',
+  description: row.case_description || '',
+  opposingParty: row.opposing_party || '',
+  processNumber: row.process_number || '',
   status: row.status,
   type: row.status_key,
   dueDate: row.due_date || null,
@@ -1003,6 +1018,11 @@ const toCase = (row) => ({
   internalNotes: row.internal_notes || '',
   archivedAt: row.archived_at || null,
   archived: Boolean(row.archived_at),
+  closedAt: row.closed_at || null,
+  closureResult: row.closure_result || '',
+  closureNotes: row.closure_notes || '',
+  closureReason: row.closure_reason || '',
+  closureFinancialStatus: row.closure_financial_status || 'unknown',
   nextTask: row.next_task_title || null
 });
 
@@ -1780,7 +1800,9 @@ app.get('/api/cases', requireAuth, async (req, res, next) => {
     );
 
     const [rows] = await pool.query(
-      `SELECT c.id, c.client_id, c.title, c.status, c.status_key, c.due_date, c.internal_notes, c.archived_at,
+      `SELECT c.id, c.client_id, c.title, c.legal_area, c.case_description, c.opposing_party, c.process_number,
+              c.status, c.status_key, c.due_date, c.internal_notes, c.archived_at, c.closed_at, c.closure_result,
+              c.closure_notes, c.closure_reason, c.closure_financial_status,
               c.responsible_user_id, cl.name AS client_name, cl.avatar_color, u.full_name AS responsible_name,
               COUNT(CASE WHEN d.status = 'received' THEN 1 END) AS completed_documents,
               COUNT(d.id) AS total_documents,
@@ -1852,6 +1874,10 @@ app.post('/api/cases', requireAuth, requirePermission('createCases'), async (req
   let dueDate;
   let responsibleUserId;
   let internalNotes;
+  let legalArea;
+  let description;
+  let opposingParty;
+  let processNumber;
   try {
     clientId = parseOptionalUuid(req.body.clientId, 'Cliente invalido.');
     clientName = sanitizeTextInput(req.body.clientName, 255);
@@ -1864,6 +1890,10 @@ app.post('/api/cases', requireAuth, requirePermission('createCases'), async (req
     dueDate = parseOptionalDate(req.body.dueDate);
     responsibleUserId = parseOptionalUuid(req.body.responsibleUserId, 'Responsavel invalido.');
     internalNotes = sanitizeTextInput(req.body.internalNotes, 5000) || '';
+    legalArea = sanitizeTextInput(req.body.legalArea, 120) || '';
+    description = sanitizeTextInput(req.body.description, 5000) || '';
+    opposingParty = sanitizeTextInput(req.body.opposingParty, 255) || '';
+    processNumber = sanitizeTextInput(req.body.processNumber, 100) || '';
   } catch (error) {
     return sendError(req, res, {
       status: 400,
@@ -1897,9 +1927,9 @@ app.post('/api/cases', requireAuth, requirePermission('createCases'), async (req
     const [[caseIdResult]] = await db.query('SELECT UUID() AS id');
 
     await db.query(
-      `INSERT INTO cases (id, client_id, responsible_user_id, title, due_date, internal_notes)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [caseIdResult.id, client.id, responsibleUserId, title, dueDate, internalNotes]
+      `INSERT INTO cases (id, client_id, responsible_user_id, title, legal_area, case_description, opposing_party, process_number, status, status_key, due_date, internal_notes)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [caseIdResult.id, client.id, responsibleUserId, title, legalArea, description, opposingParty, processNumber, caseStatusLabels.analysis, 'analysis', dueDate, internalNotes]
     );
 
     const createdCase = await fetchCaseSummary(db, req.user, caseIdResult.id);
@@ -1924,6 +1954,15 @@ app.patch('/api/cases/:id', requireAuth, requirePermission('createCases'), async
   let dueDate;
   let responsibleUserId;
   let internalNotes;
+  let legalArea;
+  let description;
+  let opposingParty;
+  let processNumber;
+  let closedAt;
+  let closureResult;
+  let closureNotes;
+  let closureReason;
+  let closureFinancialStatus;
   try {
     caseId = parseUuidParam(req.params.id, 'Caso invalido.');
     title = parseRequiredText(req.body.title, 'Informe o titulo do caso.', { min: 2, max: 500 });
@@ -1931,6 +1970,18 @@ app.patch('/api/cases/:id', requireAuth, requirePermission('createCases'), async
     dueDate = parseOptionalDate(req.body.dueDate);
     responsibleUserId = parseOptionalUuid(req.body.responsibleUserId, 'Responsavel invalido.');
     internalNotes = sanitizeTextInput(req.body.internalNotes, 5000) || '';
+    legalArea = sanitizeTextInput(req.body.legalArea, 120) || '';
+    description = sanitizeTextInput(req.body.description, 5000) || '';
+    opposingParty = sanitizeTextInput(req.body.opposingParty, 255) || '';
+    processNumber = sanitizeTextInput(req.body.processNumber, 100) || '';
+    closedAt = parseOptionalDate(req.body.closedAt);
+    closureResult = sanitizeTextInput(req.body.closureResult, 500) || '';
+    closureNotes = sanitizeTextInput(req.body.closureNotes, 5000) || '';
+    closureReason = sanitizeTextInput(req.body.closureReason, 255) || '';
+    closureFinancialStatus = parseClosureFinancialStatus(req.body.closureFinancialStatus || 'unknown');
+    if (statusKey === 'closed' && (!closedAt || !closureResult || !closureReason)) {
+      throw new Error('Para encerrar o caso, informe data, resultado e motivo do encerramento.');
+    }
   } catch (error) {
     return sendError(req, res, {
       status: 400,
@@ -1955,9 +2006,14 @@ app.patch('/api/cases/:id', requireAuth, requirePermission('createCases'), async
     await assertResponsibleUser(db, req.user.office_id, responsibleUserId);
     await db.query(
       `UPDATE cases
-       SET title = ?, status_key = ?, status = ?, due_date = ?, responsible_user_id = ?, internal_notes = ?
+       SET title = ?, legal_area = ?, case_description = ?, opposing_party = ?, process_number = ?,
+           status_key = ?, status = ?, due_date = ?, responsible_user_id = ?, internal_notes = ?,
+           closed_at = ?, closure_result = ?, closure_notes = ?, closure_reason = ?, closure_financial_status = ?
        WHERE id = ?`,
-      [title, statusKey, caseStatusLabels[statusKey], dueDate, responsibleUserId, internalNotes, caseId]
+      [title, legalArea, description, opposingParty, processNumber, statusKey, caseStatusLabels[statusKey], dueDate, responsibleUserId, internalNotes,
+        statusKey === 'closed' ? closedAt : null, statusKey === 'closed' ? closureResult : null,
+        statusKey === 'closed' ? closureNotes : null, statusKey === 'closed' ? closureReason : null,
+        statusKey === 'closed' ? closureFinancialStatus : null, caseId]
     );
 
     const updatedCase = await fetchCaseSummary(db, req.user, caseId);

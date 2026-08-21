@@ -88,3 +88,4 @@
 .document-note{display:block;margin-top:6px;color:#7f8da0;font-size:10px;line-height:1.5}
 @media(max-width:900px){.inline-task-form{grid-template-columns:1fr}.case-detail-modal{padding:22px}}
 .form-helper{margin:-5px 0 0;color:#778599;font-size:11px;line-height:1.4}
+.status.analysis{background:#eaf1f9;color:#456688}.status.active{background:#edeafd;color:#655da3}.status.closed{background:#e7f5ed;color:#3e8c66}.case-closure-fields{border:1px solid #eadfc9;background:#fffaf1;border-radius:7px;padding:16px;display:grid;gap:13px}.case-closure-fields h3{margin:0;font:700 16px Fraunces,serif}.case-closure-fields>p{margin:-5px 0 2px;color:#778599;font-size:11px}
