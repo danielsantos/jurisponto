@@ -9,12 +9,33 @@ if (!process.env.DATABASE_URL) {
 }
 
 const { migrate } = require('../migrate');
+const { createDatabasePool } = require('../database');
 
 let appServer;
 let app;
 let pool;
 let baseUrl;
 let ensureUploadsDirectory;
+
+const wait = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+
+async function waitForDatabase({ timeoutMs = 60000 } = {}) {
+  const deadline = Date.now() + timeoutMs;
+  let lastError;
+  while (Date.now() < deadline) {
+    const connectionPool = createDatabasePool();
+    try {
+      await connectionPool.query('SELECT 1');
+      await connectionPool.end();
+      return;
+    } catch (error) {
+      lastError = error;
+      await connectionPool.end().catch(() => {});
+      await wait(1000);
+    }
+  }
+  throw new Error(`O MySQL de testes não ficou disponível em ${timeoutMs / 1000}s: ${lastError?.message || 'erro desconhecido'}`);
+}
 
 function cookieFrom(response) {
   const value = response.headers.get('set-cookie');
@@ -80,6 +101,7 @@ async function cleanupTestData() {
 }
 
 test.before(async () => {
+  await waitForDatabase();
   await migrate();
   ({ app, pool, ensureUploadsDirectory } = require('../server'));
   await ensureUploadsDirectory();
@@ -89,9 +111,9 @@ test.before(async () => {
 });
 
 test.after(async () => {
-  await cleanupTestData();
-  await new Promise((resolve, reject) => appServer.close((error) => error ? reject(error) : resolve()));
-  await pool.end();
+  if (pool) await cleanupTestData();
+  if (appServer) await new Promise((resolve, reject) => appServer.close((error) => error ? reject(error) : resolve()));
+  if (pool) await pool.end();
 });
 
 test('fluxo crítico: cadastro, verificação, recuperação e invalidação de sessão', async () => {
