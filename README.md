@@ -74,6 +74,14 @@ Defina o destino dos logs pelo ambiente:
 
 As rotas de cadastro, login, confirmacao de e-mail e recuperacao de senha possuem limite por IP para conter tentativas automatizadas. Em producao atras de um unico proxy reverso confiavel, defina `TRUST_PROXY=1` para que o Express use o IP real do visitante. As respostas tambem enviam cabecalhos para evitar inclusao em iframes, interpretacao indevida de tipos de arquivo e cache de respostas da API.
 
+## Privacidade e LGPD
+
+- O cadastro requer aceite dos Termos de Uso e da Politica de Privacidade, versionado com data, IP e agente de usuário.
+- As páginas públicas são `/termos`, `/privacidade` e `/privacidade/solicitacoes`.
+- Defina `PRIVACY_CONTACT_EMAIL` para receber aviso de novas solicitações; sem essa variável, elas continuam registradas no banco e são reportadas no log.
+- Administradores podem baixar uma exportação JSON do escritório e registrar pedido de exclusão em Configurações > Privacidade e dados.
+- O procedimento operacional de atendimento, retenção e incidentes está em `docs/PRIVACY_OPERATIONS.md`. Os textos e prazos precisam de validação jurídica antes da divulgação pública.
+
 ## Auditoria de documentos
 
 Cada evento relevante de documento agora gera trilha em `document_audit_logs`, cobrindo criacao de solicitacao, alteracoes operacionais e download de arquivo. A auditoria registra quem executou a acao, quando ocorreu, qual foi a acao, `requestId`, IP e `user-agent`, alem de metadados uteis do evento.

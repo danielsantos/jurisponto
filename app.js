@@ -1720,6 +1720,27 @@ $('#team-cancel').addEventListener('click', () => {
   $('#team-feedback').hidden = true;
 });
 
+$('#export-office-data').addEventListener('click', () => {
+  window.location.assign('/api/privacy/export');
+});
+
+$('#office-deletion-request-form').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const form = event.currentTarget;
+  if (!window.confirm('Registrar uma solicitação de exclusão do escritório? A exclusão não será feita imediatamente.')) return;
+  try {
+    const result = await api('/api/privacy/office-deletion-request', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(Object.fromEntries(new FormData(form)))
+    });
+    form.reset();
+    showToast(result.message);
+  } catch (error) {
+    showToast(error.message);
+  }
+});
+
 $('#team-form').addEventListener('submit', async (event) => {
   event.preventDefault();
   const form = event.currentTarget;

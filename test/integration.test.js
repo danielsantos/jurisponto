@@ -65,7 +65,7 @@ async function createVerifiedOffice(label) {
   const password = 'SenhaSegura123';
   const signup = await request('/api/auth/signup', {
     method: 'POST',
-    body: { name: `Responsavel ${label}`, office: `Teste integracao ${label} ${suffix}`, email, password }
+    body: { name: `Responsavel ${label}`, office: `Teste integracao ${label} ${suffix}`, email, password, privacyAccepted: true }
   });
   assert.equal(signup.status, 201);
   assert.match(signup.body.data.developmentCode, /^\d{6}$/);
@@ -140,6 +140,27 @@ test('fluxo crítico: cadastro, verificação, recuperação e invalidação de 
   });
   assert.equal(login.status, 200);
   assert.ok(login.cookie);
+});
+
+test('privacidade: exige aceite, registra solicitações e protege a exportação', async () => {
+  const suffix = crypto.randomUUID().slice(0, 8);
+  const rejectedSignup = await request('/api/auth/signup', {
+    method: 'POST',
+    body: { name: 'Sem aceite', office: `Teste integracao sem aceite ${suffix}`, email: `sem.aceite.${suffix}@example.test`, password: 'SenhaSegura123' }
+  });
+  assert.equal(rejectedSignup.status, 400);
+
+  const privacyRequest = await request('/api/privacy/requests', {
+    method: 'POST', body: { name: 'Titular de teste', email: `titular.${suffix}@example.test`, type: 'access', message: 'Solicito confirmação dos dados tratados.' }
+  });
+  assert.equal(privacyRequest.status, 201);
+
+  const account = await createVerifiedOffice('privacidade');
+  const exportResponse = await fetch(`${baseUrl}/api/privacy/export`, { headers: { cookie: account.cookie } });
+  assert.equal(exportResponse.status, 200);
+  const exported = await exportResponse.json();
+  assert.equal(exported.office.name.startsWith('Teste integracao privacidade'), true);
+  assert.equal(exported.users.length, 1);
 });
 
 test('fluxo crítico: isolamento de escritórios, documentos e financeiro', async () => {

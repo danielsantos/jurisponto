@@ -61,4 +61,18 @@ async function sendDocumentRequestEmail({ to, clientName, documentName, caseTitl
   });
 }
 
-module.exports = { sendVerificationEmail, sendPasswordResetEmail, sendDocumentRequestEmail };
+async function sendPrivacyRequestEmail({ requesterEmail, requesterName, requestType, message }) {
+  const recipient = process.env.PRIVACY_CONTACT_EMAIL;
+  if (!recipient) {
+    console.warn('[PRIVACIDADE] PRIVACY_CONTACT_EMAIL não configurado; solicitação registrada apenas no banco.');
+    return { mode: 'unconfigured' };
+  }
+  return deliverEmail({
+    to: recipient,
+    subject: `Nova solicitação de privacidade: ${requestType}`,
+    text: `Solicitante: ${requesterName || 'Não informado'}\nE-mail: ${requesterEmail}\nTipo: ${requestType}\n\nDetalhes:\n${message || 'Não informado'}`,
+    html: `<p><strong>Solicitante:</strong> ${escapeHtml(requesterName || 'Não informado')}</p><p><strong>E-mail:</strong> ${escapeHtml(requesterEmail)}<br /><strong>Tipo:</strong> ${escapeHtml(requestType)}</p><p><strong>Detalhes:</strong><br />${escapeHtml(message || 'Não informado')}</p>`
+  });
+}
+
+module.exports = { sendVerificationEmail, sendPasswordResetEmail, sendDocumentRequestEmail, sendPrivacyRequestEmail };

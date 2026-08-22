@@ -8,7 +8,7 @@ const fs = require('fs/promises');
 const syncFs = require('fs');
 const multer = require('multer');
 const { createDatabasePool } = require('./database');
-const { sendVerificationEmail, sendPasswordResetEmail, sendDocumentRequestEmail } = require('./email-service');
+const { sendVerificationEmail, sendPasswordResetEmail, sendDocumentRequestEmail, sendPrivacyRequestEmail } = require('./email-service');
 const {
   buildMeta,
   createRequirePermission,
@@ -50,6 +50,9 @@ let lastAuthRateLimitCleanup = 0;
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const hexColorPattern = /^#[0-9a-f]{6}$/i;
 const phonePattern = /^[0-9+\-() ]{8,30}$/;
+const privacyPolicyVersion = '2026-08-22';
+const termsVersion = '2026-08-22';
+const privacyRequestTypes = new Set(['access', 'correction', 'deletion', 'information', 'office_deletion']);
 
 const upload = multer({
   storage: multer.diskStorage({
@@ -1152,6 +1155,29 @@ app.get('/api/health', async (_req, res, next) => {
   }
 });
 
+app.post('/api/privacy/requests', createAuthRateLimiter({ name: 'privacy-request', maxAttempts: 5, windowMs: 60 * 60 * 1000 }), async (req, res, next) => {
+  try {
+    const email = normalizeEmail(req.body.email);
+    const name = sanitizeTextInput(req.body.name, 255) || null;
+    const requestType = sanitizeTextInput(req.body.type, 30);
+    const message = sanitizeTextInput(req.body.message, 5000) || null;
+    if (!isValidEmail(email) || !privacyRequestTypes.has(requestType)) {
+      return sendError(req, res, { status: 400, code: 'VALIDATION_ERROR', message: 'Informe e-mail valido e o tipo de solicitacao.' });
+    }
+    await pool.query(
+      `INSERT INTO privacy_requests (id, requester_name, requester_email, request_type, message)
+       VALUES (UUID(), ?, ?, ?, ?)`,
+      [name, email, requestType, message]
+    );
+    await sendPrivacyRequestEmail({ requesterEmail: email, requesterName: name, requestType, message }).catch((error) => {
+      logEvent('error', 'privacy_request_notification_failed', buildRequestContext(req), { error: serializeError(error) });
+    });
+    sendSuccess(req, res, { status: 201, data: { message: 'Solicitacao registrada. Responderemos pelo e-mail informado.' } });
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.post('/api/auth/signup', createAuthRateLimiter({ name: 'signup', maxAttempts: 5, windowMs: 15 * 60 * 1000 }), async (req, res, next) => {
   let fullName;
   let officeName;
@@ -1169,6 +1195,9 @@ app.post('/api/auth/signup', createAuthRateLimiter({ name: 'signup', maxAttempts
       });
     }
     password = parsePassword(req.body.password);
+    if (req.body.privacyAccepted !== true && req.body.privacyAccepted !== 'true' && req.body.privacyAccepted !== 'on') {
+      throw new Error('Voce precisa aceitar os Termos de Uso e a Politica de Privacidade para criar uma conta.');
+    }
   } catch (error) {
     return sendError(req, res, {
       status: 400,
@@ -1201,6 +1230,11 @@ app.post('/api/auth/signup', createAuthRateLimiter({ name: 'signup', maxAttempts
       `INSERT INTO users (id, office_id, full_name, email, password_hash, role, trial_ends_at)
        VALUES (?, ?, ?, ?, ?, 'admin', ?)`,
       [userIdResult.id, officeIdResult.id, fullName, email, passwordHash, trialEndsAt]
+    );
+    await db.query(
+      `INSERT INTO user_privacy_acceptances (id, user_id, privacy_policy_version, terms_version, ip_address, user_agent)
+       VALUES (UUID(), ?, ?, ?, ?, ?)`,
+      [userIdResult.id, privacyPolicyVersion, termsVersion, getRequestIp(req), getRequestUserAgent(req)]
     );
 
     const verificationCode = await saveVerificationCode(db, userIdResult.id);
@@ -1571,6 +1605,55 @@ app.get('/api/auth/me', requireAuth, (req, res) => {
       trialEndsAt: req.user.trial_ends_at
     }
   });
+});
+
+app.get('/api/privacy/export', requireAuth, requirePermission('accessSettings'), async (req, res, next) => {
+  try {
+    const officeId = req.user.office_id;
+    const [officeRows] = await pool.query('SELECT id, name, created_at FROM offices WHERE id = ?', [officeId]);
+    const [users] = await pool.query('SELECT id, full_name, email, role, client_id, email_verified_at, created_at FROM users WHERE office_id = ?', [officeId]);
+    const [clients] = await pool.query('SELECT id, name, email, phone, document_id, notes, created_at FROM clients WHERE office_id = ?', [officeId]);
+    const [cases] = await pool.query(
+      `SELECT c.* FROM cases c JOIN clients cl ON cl.id = c.client_id WHERE cl.office_id = ?`, [officeId]
+    );
+    const [documents] = await pool.query(
+      `SELECT d.id, d.case_id, d.name, d.status, d.requested_at, d.last_reminded_at, d.file_name, d.mime_type, d.file_size, d.uploaded_at
+       FROM documents d JOIN cases c ON c.id = d.case_id JOIN clients cl ON cl.id = c.client_id WHERE cl.office_id = ?`, [officeId]
+    );
+    const [financialEntries] = await pool.query('SELECT * FROM financial_entries WHERE office_id = ?', [officeId]);
+    const [agendaEvents] = await pool.query('SELECT * FROM agenda_events WHERE office_id = ?', [officeId]);
+    const [updates] = await pool.query('SELECT * FROM case_updates WHERE office_id = ?', [officeId]);
+    const [privacyAcceptances] = await pool.query(
+      `SELECT a.user_id, a.privacy_policy_version, a.terms_version, a.accepted_at
+       FROM user_privacy_acceptances a JOIN users u ON u.id = a.user_id WHERE u.office_id = ?`, [officeId]
+    );
+    const exportData = {
+      generatedAt: new Date().toISOString(),
+      format: 'Rota do Caso - exportacao de dados',
+      office: officeRows[0] || null,
+      users, clients, cases, documents, financialEntries, agendaEvents, updates, privacyAcceptances
+    };
+    res.set('Content-Disposition', `attachment; filename="exportacao-dados-${officeId}.json"`);
+    res.type('application/json').send(JSON.stringify(exportData, null, 2));
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post('/api/privacy/office-deletion-request', requireAuth, requirePermission('accessSettings'), async (req, res, next) => {
+  try {
+    if (sanitizeTextInput(req.body.confirmation, 100) !== 'EXCLUIR ESCRITORIO') {
+      return sendError(req, res, { status: 400, code: 'CONFIRMATION_REQUIRED', message: 'Digite EXCLUIR ESCRITORIO para registrar a solicitacao.' });
+    }
+    await pool.query(
+      `INSERT INTO privacy_requests (id, office_id, requester_user_id, requester_name, requester_email, request_type, message)
+       VALUES (UUID(), ?, ?, ?, ?, 'office_deletion', ?)`,
+      [req.user.office_id, req.user.id, req.user.full_name, req.user.email, sanitizeTextInput(req.body.message, 5000) || null]
+    );
+    sendSuccess(req, res, { status: 201, data: { message: 'Solicitacao de exclusao registrada. A exclusao nao e imediata e deve ser analisada conforme as obrigacoes legais aplicaveis.' } });
+  } catch (error) {
+    next(error);
+  }
 });
 
 app.get('/api/clients', requireAuth, async (req, res, next) => {
@@ -4105,9 +4188,14 @@ app.get('/password-reset.css', (_req, res) => res.sendFile(path.join(__dirname, 
 app.get('/password-reset.js', (_req, res) => res.sendFile(path.join(__dirname, 'password-reset.js')));
 app.get('/document-upload.css', (_req, res) => res.sendFile(path.join(__dirname, 'document-upload.css')));
 app.get('/document-upload.js', (_req, res) => res.sendFile(path.join(__dirname, 'document-upload.js')));
+app.get('/privacy.css', (_req, res) => res.sendFile(path.join(__dirname, 'privacy.css')));
+app.get('/privacy-requests.js', (_req, res) => res.sendFile(path.join(__dirname, 'privacy-requests.js')));
 app.get('/app', requireAuth, (_req, res) => res.sendFile(path.join(__dirname, 'index.html')));
 app.get('/redefinir-senha', (_req, res) => res.sendFile(path.join(__dirname, 'password-reset.html')));
 app.get('/enviar-documento', (_req, res) => res.sendFile(path.join(__dirname, 'document-upload.html')));
+app.get('/privacidade', (_req, res) => res.sendFile(path.join(__dirname, 'privacy.html')));
+app.get('/termos', (_req, res) => res.sendFile(path.join(__dirname, 'terms.html')));
+app.get('/privacidade/solicitacoes', (_req, res) => res.sendFile(path.join(__dirname, 'privacy-requests.html')));
 app.get('*', (_req, res) => res.sendFile(path.join(__dirname, 'home.html')));
 
 async function startServer() {

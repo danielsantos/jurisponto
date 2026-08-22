@@ -259,6 +259,18 @@
               </div>
             </div>
           </section>
+          <section class="panel settings-panel" id="privacy-settings">
+            <div class="panel-heading"><div><h2>Privacidade e dados</h2><p>Exporte os dados do escritório ou registre uma solicitação de exclusão para análise.</p></div></div>
+            <div class="form-actions">
+              <button class="secondary-button" type="button" id="export-office-data">Baixar exportação de dados</button>
+              <a class="secondary-button" href="/privacidade/solicitacoes" target="_blank">Canal de solicitações LGPD</a>
+            </div>
+            <form id="office-deletion-request-form" class="team-form">
+              <label>Solicitar exclusão do escritório <small>A medida não é imediata: dados podem precisar ser retidos por obrigação legal.</small><input name="confirmation" placeholder="Digite EXCLUIR ESCRITORIO" /></label>
+              <label>Observação <textarea name="message" rows="3" placeholder="Informe o motivo ou instruções adicionais."></textarea></label>
+              <div class="form-actions"><button class="danger-button" type="submit">Registrar solicitação de exclusão</button></div>
+            </form>
+          </section>
         </section>
       </main>
     </div>
