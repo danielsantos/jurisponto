@@ -3730,8 +3730,15 @@ app.use((error, req, res, _next) => {
   });
 });
 
-app.get('/styles.css', (_req, res) => res.sendFile(path.join(__dirname, 'styles.css')));
-app.get('/app.js', (_req, res) => res.sendFile(path.join(__dirname, 'app.js')));
+function sendAppAsset(fileName) {
+  return (_req, res) => {
+    res.set('Cache-Control', 'no-store, max-age=0');
+    res.sendFile(path.join(__dirname, fileName));
+  };
+}
+
+app.get('/styles.css', sendAppAsset('styles.css'));
+app.get('/app.js', sendAppAsset('app.js'));
 app.get('/marketing.css', (_req, res) => res.sendFile(path.join(__dirname, 'marketing.css')));
 app.get('/marketing.js', (_req, res) => res.sendFile(path.join(__dirname, 'marketing.js')));
 app.get('/password-reset.css', (_req, res) => res.sendFile(path.join(__dirname, 'password-reset.css')));
