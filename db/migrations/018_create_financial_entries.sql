@@ -21,4 +21,4 @@ CREATE TABLE IF NOT EXISTS financial_entries (
   INDEX idx_financial_entries_office_status_due (office_id, status, due_date),
   INDEX idx_financial_entries_case_due (case_id, due_date),
   INDEX idx_financial_entries_client_due (client_id, due_date)
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
