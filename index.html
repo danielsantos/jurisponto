@@ -71,28 +71,34 @@
             </div>
             <button class="secondary-button" id="share-portal">Compartilhar portal</button>
           </div>
-          <div class="metrics">
-            <article><div class="metric-icon navy">#</div><div><small>Casos ativos</small><strong id="active-cases">0</strong><span class="up">Atualizado em tempo real</span></div></article>
-            <article><div class="metric-icon amber">=</div><div><small>Documentos pendentes</small><strong id="pending-documents">0</strong><span class="attention">Acompanhe cobrancas e envios</span></div></article>
-            <article><div class="metric-icon green">></div><div><small>Proximo prazo</small><strong id="next-deadline">Sem prazo</strong><span id="next-deadline-note">Crie ou acompanhe casos</span></div></article>
-            <article><div class="metric-icon lavender">%</div><div><small>Taxa de conclusao</small><strong id="completion-rate">0%</strong><span id="completion-rate-note">Baseada nos documentos dos casos</span></div></article>
+          <div id="staff-dashboard-content">
+            <div class="metrics operational-metrics">
+              <article><div class="metric-icon navy">!</div><div><small>Para hoje</small><strong id="dashboard-today-count">0</strong><span id="dashboard-today-note">Sem compromissos hoje</span></div></article>
+              <article><div class="metric-icon amber">></div><div><small>Próximos prazos</small><strong id="dashboard-deadline-count">0</strong><span>Nos próximos 7 dias</span></div></article>
+              <article><div class="metric-icon lavender">o</div><div><small>Audiências agendadas</small><strong id="dashboard-hearing-count">0</strong><span>Compromissos futuros</span></div></article>
+              <article><div class="metric-icon green">$</div><div><small>A receber</small><strong id="dashboard-receivable-total">R$ 0,00</strong><span id="dashboard-receivable-note">Nenhuma receita pendente</span></div></article>
+            </div>
+            <div class="dashboard-grid">
+              <section class="panel">
+                <div class="panel-heading"><div><h2>O que fazer hoje</h2><p>Tarefas, prazos, audiências e reuniões pendentes.</p></div><button class="text-button" data-view-target="agenda">Abrir agenda -></button></div>
+                <div id="dashboard-today-list" class="agenda-list compact-agenda-list"></div>
+              </section>
+              <section class="panel action-needed-panel">
+                <div class="panel-heading"><div><h2>Aguardando ação</h2><p>Casos aguardando retorno e documentos pendentes.</p></div><button class="text-button" data-view-target="cases">Ver casos -></button></div>
+                <div id="dashboard-waiting-list" class="dashboard-action-list"></div>
+              </section>
+            </div>
+            <div class="dashboard-grid dashboard-secondary-grid">
+              <section class="panel">
+                <div class="panel-heading"><div><h2>Prazos e audiências próximos</h2><p>Itens importantes para planejar a semana.</p></div><button class="text-button" data-view-target="agenda">Ver agenda -></button></div>
+                <div id="dashboard-upcoming-list" class="agenda-list compact-agenda-list"></div>
+              </section>
+              <section class="panel">
+                <div class="panel-heading"><div><h2>Honorários a receber</h2><p>Receitas pendentes por vencimento.</p></div><button class="text-button" data-view-target="finance">Abrir financeiro -></button></div>
+                <div id="dashboard-receivables-list" class="dashboard-receivables-list"></div>
+              </section>
+            </div>
           </div>
-          <div class="dashboard-grid">
-            <section class="panel pending-panel">
-              <div class="panel-heading"><div><h2 id="pending-panel-title">Documentos pendentes</h2><p id="pending-panel-copy">Itens aguardando envio dos clientes.</p></div><button class="text-button" data-view-target="documents">Ver todos -></button></div>
-              <div id="pending-list" class="pending-list"></div>
-            </section>
-            <section class="panel activity-panel">
-              <div class="panel-heading"><div><h2>Resumo do acesso</h2><p>Seu perfil dentro do escritorio.</p></div></div>
-              <div class="timeline" id="role-summary">
-                <div><span class="timeline-dot amber-dot">i</span><p><strong>Carregando perfil</strong><span>As permissoes serao exibidas aqui.</span></p></div>
-              </div>
-            </section>
-          </div>
-          <section class="panel agenda-preview">
-            <div class="panel-heading"><div><h2>Proximos compromissos</h2><p>Prazos, tarefas, audiencias e reunioes da sua agenda.</p></div><button class="text-button" data-view-target="agenda">Abrir agenda -></button></div>
-            <div id="dashboard-agenda-list" class="agenda-list compact-agenda-list"></div>
-          </section>
           <section class="panel client-portal-panel" id="client-portal-panel" hidden>
             <div class="panel-heading">
               <div>
@@ -127,7 +133,7 @@
             <div class="panel-heading"><div><h2>Historico recente</h2><p>Mensagens simples e movimentacoes importantes dos seus documentos.</p></div></div>
             <div id="client-history-list" class="timeline"></div>
           </section>
-          <section class="panel cases-preview">
+          <section class="panel cases-preview" id="dashboard-cases-preview">
             <div class="panel-heading"><div><h2>Seus casos</h2><p>Visao rapida dos casos em andamento.</p></div><button class="text-button" data-view-target="cases">Ver todos os casos -></button></div>
             <div class="table-wrap"><table><thead><tr><th>CLIENTE</th><th>CASO</th><th>STATUS</th><th>RESPONSAVEL</th><th>PROXIMO PRAZO</th><th></th></tr></thead><tbody id="cases-table"></tbody></table></div>
           </section>

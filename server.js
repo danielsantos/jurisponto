@@ -3333,6 +3333,70 @@ app.post('/api/documents/:id/request-resend', requireAuth, requirePermission('se
   }
 });
 
+app.get('/api/dashboard', requireAuth, requirePermission('createCases'), async (req, res, next) => {
+  try {
+    const officeId = req.user.office_id;
+    const [todayRows] = await pool.query(
+      `SELECT e.id, e.title, e.event_type, DATE_FORMAT(e.starts_at, '%Y-%m-%dT%H:%i') AS starts_at, e.priority, e.reminder_minutes, e.status, e.completed_at, e.case_id, c.title AS case_title, cl.name AS client_name
+       FROM agenda_events e LEFT JOIN cases c ON c.id = e.case_id LEFT JOIN clients cl ON cl.id = c.client_id
+       WHERE e.office_id = ? AND e.status = 'pending' AND DATE(e.starts_at) = CURDATE()
+       ORDER BY e.starts_at ASC`, [officeId]
+    );
+    const [upcomingRows] = await pool.query(
+      `SELECT e.id, e.title, e.event_type, DATE_FORMAT(e.starts_at, '%Y-%m-%dT%H:%i') AS starts_at, e.priority, e.reminder_minutes, e.status, e.completed_at, e.case_id, c.title AS case_title, cl.name AS client_name
+       FROM agenda_events e LEFT JOIN cases c ON c.id = e.case_id LEFT JOIN clients cl ON cl.id = c.client_id
+       WHERE e.office_id = ? AND e.status = 'pending' AND e.event_type IN ('deadline', 'hearing')
+         AND e.starts_at >= CURDATE() AND e.starts_at < DATE_ADD(CURDATE(), INTERVAL 8 DAY)
+       ORDER BY e.starts_at ASC LIMIT 8`, [officeId]
+    );
+    const [waitingRows] = await pool.query(
+      `SELECT c.id, c.title, c.due_date, cl.name AS client_name
+       FROM cases c JOIN clients cl ON cl.id = c.client_id
+       WHERE cl.office_id = ? AND c.archived_at IS NULL AND c.status_key = 'waiting'
+       ORDER BY c.due_date IS NULL, c.due_date ASC, c.created_at DESC LIMIT 5`, [officeId]
+    );
+    const [receivableRows] = await pool.query(
+      `SELECT e.id, e.description, e.entry_type, e.amount, e.due_date, e.status, e.paid_at, e.installment_number, e.installment_total, e.client_id, e.case_id, e.created_at, cl.name AS client_name, c.title AS case_title
+       FROM financial_entries e LEFT JOIN clients cl ON cl.id = e.client_id LEFT JOIN cases c ON c.id = e.case_id
+       WHERE e.office_id = ? AND e.entry_type = 'income' AND e.status = 'pending'
+       ORDER BY e.due_date ASC LIMIT 5`, [officeId]
+    );
+    const [[summary]] = await pool.query(
+      `SELECT
+         (SELECT COUNT(*) FROM agenda_events WHERE office_id = ? AND status = 'pending' AND DATE(starts_at) = CURDATE()) AS today_count,
+         (SELECT COUNT(*) FROM agenda_events WHERE office_id = ? AND status = 'pending' AND event_type = 'deadline' AND starts_at >= CURDATE() AND starts_at < DATE_ADD(CURDATE(), INTERVAL 8 DAY)) AS deadline_count,
+         (SELECT COUNT(*) FROM agenda_events WHERE office_id = ? AND status = 'pending' AND event_type = 'hearing' AND starts_at >= CURDATE()) AS hearing_count,
+         (SELECT COUNT(*) FROM cases c JOIN clients cl ON cl.id = c.client_id WHERE cl.office_id = ? AND c.archived_at IS NULL AND c.status_key = 'waiting') AS waiting_count,
+         (SELECT COUNT(*) FROM documents d JOIN cases c ON c.id = d.case_id JOIN clients cl ON cl.id = c.client_id WHERE cl.office_id = ? AND d.status <> 'received') AS document_count,
+         (SELECT COALESCE(SUM(amount), 0) FROM financial_entries WHERE office_id = ? AND entry_type = 'income' AND status = 'pending') AS receivable_amount`,
+      [officeId, officeId, officeId, officeId, officeId, officeId]
+    );
+    sendSuccess(req, res, {
+      data: {
+        summary: {
+          todayCount: Number(summary.today_count || 0),
+          deadlineCount: Number(summary.deadline_count || 0),
+          hearingCount: Number(summary.hearing_count || 0),
+          waitingCount: Number(summary.waiting_count || 0),
+          documentCount: Number(summary.document_count || 0),
+          receivableAmount: Number(summary.receivable_amount || 0)
+        },
+        today: todayRows.map(formatAgendaEvent),
+        upcoming: upcomingRows.map(formatAgendaEvent),
+        waitingCases: waitingRows.map((row) => ({
+          id: row.id,
+          title: row.title,
+          client: row.client_name,
+          dueDate: row.due_date instanceof Date ? row.due_date.toISOString().slice(0, 10) : String(row.due_date || '').slice(0, 10)
+        })),
+        receivables: receivableRows.map(formatFinancialEntry)
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.get('/api/updates', requireAuth, async (req, res, next) => {
   try {
     const caseId = req.query.caseId ? parseUuidParam(req.query.caseId, 'Caso invalido.') : null;

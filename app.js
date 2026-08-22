@@ -8,6 +8,7 @@ let caseUpdates = [];
 let activityFeed = [];
 let agendaEvents = [];
 let financialEntries = [];
+let dashboardData = null;
 let currentUser = null;
 let selectedCaseFilter = 'all';
 let editingTeamUserId = null;
@@ -168,13 +169,9 @@ function agendaEventRow(item, compact = false) {
 }
 
 function renderAgenda() {
-  const upcoming = agendaEvents.filter((item) => item.status === 'pending').slice(0, 4);
   $('#agenda-list').innerHTML = agendaEvents.length
     ? agendaEvents.map((item) => agendaEventRow(item)).join('')
     : '<div class="empty-state-card">Nenhum compromisso encontrado para este filtro.</div>';
-  $('#dashboard-agenda-list').innerHTML = upcoming.length
-    ? upcoming.map((item) => agendaEventRow(item, true)).join('')
-    : '<div class="empty-state-card">Nenhum compromisso pendente. Sua agenda esta livre.</div>';
 }
 
 function formatCurrency(value) {
@@ -216,6 +213,48 @@ function renderFinancial() {
   $('#finance-list').innerHTML = visible.length
     ? visible.map(financialEntryRow).join('')
     : '<div class="empty-state-card">Nenhum lancamento encontrado para este filtro.</div>';
+}
+
+function dashboardEmptyState(message) {
+  return `<div class="empty-state-card">${escapeHtml(message)}</div>`;
+}
+
+function dashboardWaitingRow(item) {
+  return `<article class="dashboard-action-row">
+    <span class="dashboard-action-icon">#</span>
+    <div><strong>${escapeHtml(item.title)}</strong><p>${escapeHtml(item.client)}${item.dueDate ? ` · prazo ${escapeHtml(formatDate(item.dueDate))}` : ''}</p></div>
+    <button class="text-button open-dashboard-case" data-case-id="${escapeAttribute(safeId(item.id))}">Abrir -></button>
+  </article>`;
+}
+
+function dashboardReceivableRow(item) {
+  return `<article class="dashboard-receivable-row">
+    <div><strong>${escapeHtml(item.description)}</strong><p>${escapeHtml(item.client || 'Sem cliente')}${item.case ? ` · ${escapeHtml(item.case)}` : ''} · vence ${escapeHtml(formatDate(item.dueDate))}</p></div>
+    <strong>${escapeHtml(formatCurrency(item.amount))}</strong>
+  </article>`;
+}
+
+function renderDashboard() {
+  if (!currentUser?.permissions?.createCases || currentUser.role === 'client') return;
+  if (!dashboardData) return;
+  const { summary, today, upcoming, waitingCases, receivables } = dashboardData;
+  $('#dashboard-today-count').textContent = summary.todayCount;
+  $('#dashboard-deadline-count').textContent = summary.deadlineCount;
+  $('#dashboard-hearing-count').textContent = summary.hearingCount;
+  $('#dashboard-receivable-total').textContent = formatCurrency(summary.receivableAmount);
+  $('#dashboard-today-note').textContent = summary.todayCount ? `${summary.todayCount} item${summary.todayCount === 1 ? '' : 's'} para acompanhar` : 'Sem compromissos hoje';
+  $('#dashboard-receivable-note').textContent = summary.receivableAmount ? `${receivables.length} lançamento${receivables.length === 1 ? '' : 's'} próximo${receivables.length === 1 ? '' : 's'}` : 'Nenhuma receita pendente';
+  $('#dashboard-today-list').innerHTML = today.length
+    ? today.map((item) => agendaEventRow(item, true)).join('')
+    : dashboardEmptyState('Nenhuma tarefa ou compromisso pendente para hoje.');
+  $('#dashboard-upcoming-list').innerHTML = upcoming.length
+    ? upcoming.map((item) => agendaEventRow(item, true)).join('')
+    : dashboardEmptyState('Nenhum prazo ou audiência agendado para os próximos 7 dias.');
+  const waitingSummary = `<article class="dashboard-action-row"><span class="dashboard-action-icon">=</span><div><strong>${summary.documentCount} documento${summary.documentCount === 1 ? '' : 's'} pendente${summary.documentCount === 1 ? '' : 's'}</strong><p>Checklists e reenvios que ainda precisam de acompanhamento.</p></div><button class="text-button dashboard-open-view" data-dashboard-view="documents">Ver -></button></article>`;
+  $('#dashboard-waiting-list').innerHTML = `${waitingSummary}${waitingCases.length ? waitingCases.map(dashboardWaitingRow).join('') : '<div class="empty-state-card">Nenhum caso aguardando retorno.</div>'}`;
+  $('#dashboard-receivables-list').innerHTML = receivables.length
+    ? receivables.map(dashboardReceivableRow).join('')
+    : dashboardEmptyState('Nenhum honorário pendente de recebimento.');
 }
 
 function caseRow(item) {
@@ -272,17 +311,6 @@ function renderCases(list = getVisibleCases()) {
 
   $('#cases-table').innerHTML = previewCases.map(caseRow).join('') || '<tr><td colspan="6">Nenhum caso encontrado.</td></tr>';
   $('#all-cases-table').innerHTML = list.map(caseRow).join('') || '<tr><td colspan="6">Nenhum caso encontrado.</td></tr>';
-  $('#active-cases').textContent = activeCases.filter((item) => item.type !== 'closed').length;
-
-  const datedCases = activeCases.filter((item) => item.dueDate).sort((a, b) => a.dueDate.localeCompare(b.dueDate));
-  $('#next-deadline').textContent = datedCases[0]?.due || 'Sem prazo';
-  $('#next-deadline-note').textContent = datedCases.length ? 'Considere revisar a prioridade deste prazo.' : 'Crie ou acompanhe casos';
-
-  const completedDocs = activeCases.reduce((acc, item) => acc + item.docs[0], 0);
-  const totalDocs = activeCases.reduce((acc, item) => acc + item.docs[1], 0);
-  const rate = totalDocs ? Math.round((completedDocs / totalDocs) * 100) : 0;
-  $('#completion-rate').textContent = `${rate}%`;
-
   updateCaseFilters();
   populateCaseSelects();
 }
@@ -296,6 +324,7 @@ function getUploadedDocuments() {
 }
 
 function renderPendingList() {
+  if (!$('#pending-list')) return;
   const list = getOpenDocuments();
   $('#pending-list').innerHTML = list.length
     ? list.slice(0, 3).map((document) => `
@@ -428,7 +457,6 @@ function renderDocuments() {
 
   $('#documents-list').innerHTML = sections.join('') || '<article class="document-row"><div><h3>Nenhum documento por aqui</h3><p>Quando houver novos checklists, solicitacoes ou uploads, eles aparecerao aqui.</p></div></article>';
 
-  $('#pending-documents').textContent = openDocuments.length;
   $('#nav-document-count').textContent = openDocuments.length;
   $('#documents-title').textContent = currentUser?.role === 'client' ? 'Seus documentos' : 'Checklist dos casos';
   $('#documents-subcopy').textContent = currentUser?.role === 'client'
@@ -561,6 +589,7 @@ function renderActivityFeed() {
 }
 
 function renderRoleSummary() {
+  if (!$('#role-summary')) return;
   if (!currentUser) return;
 
   const permissionLines = [
@@ -745,10 +774,8 @@ function applyPermissions() {
   $('#dashboard-subcopy').textContent = isClient
     ? 'Acompanhe seus documentos, veja o andamento e envie arquivos com mais tranquilidade.'
     : 'Acompanhe seus casos, documentos e proximos passos.';
-  $('#pending-panel-title').textContent = isClient ? 'O que ainda falta resolver' : 'Checklist em aberto';
-  $('#pending-panel-copy').textContent = isClient
-    ? 'Arquivos que ainda dependem da sua acao.'
-    : 'Itens pendentes, devolvidos ou aguardando reenvio.';
+  setVisibility($('#staff-dashboard-content'), !isClient);
+  setVisibility($('#dashboard-cases-preview'), !isClient);
 
   setDisabledState($('#new-case'), !currentUser.permissions.createCases);
   setDisabledState($('#new-case-secondary'), !currentUser.permissions.createCases);
@@ -1111,6 +1138,15 @@ async function loadFinancialEntries() {
   renderFinancial();
 }
 
+async function loadDashboard() {
+  if (!currentUser?.permissions?.createCases || currentUser.role === 'client') {
+    dashboardData = null;
+    return;
+  }
+  dashboardData = await api('/api/dashboard');
+  renderDashboard();
+}
+
 async function loadData() {
   try {
     await Promise.all([
@@ -1123,7 +1159,8 @@ async function loadData() {
       loadCaseUpdates(),
       loadActivityFeed(),
       loadAgenda(),
-      loadFinancialEntries()
+      loadFinancialEntries(),
+      loadDashboard()
     ]);
   } catch (error) {
     if (error.message.includes('sessao') || error.message.includes('cliente ainda nao foi vinculado')) {
@@ -1839,6 +1876,8 @@ $('#case-task-form').addEventListener('submit', async (event) => {
 });
 
 document.addEventListener('click', async (event) => {
+  const dashboardCaseButton = event.target.closest('.open-dashboard-case');
+  const dashboardViewButton = event.target.closest('.dashboard-open-view');
   const toggleFinancialButton = event.target.closest('.toggle-financial-entry');
   const editFinancialButton = event.target.closest('.edit-financial-entry');
   const deleteFinancialButton = event.target.closest('.delete-financial-entry');
@@ -1860,6 +1899,17 @@ document.addEventListener('click', async (event) => {
   const requestResendButton = event.target.closest('.request-resend');
   const applyTemplateButton = event.target.closest('.apply-template');
   const editTemplateButton = event.target.closest('.edit-template');
+
+  if (dashboardViewButton) {
+    showView(dashboardViewButton.dataset.dashboardView);
+    return;
+  }
+
+  if (dashboardCaseButton) {
+    const caseId = safeId(dashboardCaseButton.dataset.caseId);
+    if (caseId) await openCaseDetail(caseId);
+    return;
+  }
 
   if (toggleFinancialButton) {
     const entryId = safeId(toggleFinancialButton.dataset.entryId);
