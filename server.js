@@ -4110,9 +4110,10 @@ app.get('/redefinir-senha', (_req, res) => res.sendFile(path.join(__dirname, 'pa
 app.get('/enviar-documento', (_req, res) => res.sendFile(path.join(__dirname, 'document-upload.html')));
 app.get('*', (_req, res) => res.sendFile(path.join(__dirname, 'home.html')));
 
-ensureUploadsDirectory()
-  .then(() => {
-    app.listen(port, host || undefined, () => {
+async function startServer() {
+  try {
+    await ensureUploadsDirectory();
+    return app.listen(port, host || undefined, () => {
       logEvent('info', 'server_started', {
         port,
         host: host || null,
@@ -4120,8 +4121,7 @@ ensureUploadsDirectory()
         logFilePath: logDestination === 'file' ? logFilePath : null
       });
     });
-  })
-  .catch((error) => {
+  } catch (error) {
     logEvent('error', 'startup_failed', {
       uploadsDirectory,
       logDestination,
@@ -4129,5 +4129,12 @@ ensureUploadsDirectory()
     }, {
       error: serializeError(error)
     });
-    process.exit(1);
-  });
+    throw error;
+  }
+}
+
+if (require.main === module) {
+  startServer().catch(() => { process.exitCode = 1; });
+}
+
+module.exports = { app, pool, ensureUploadsDirectory, startServer };

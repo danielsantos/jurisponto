@@ -6,7 +6,9 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
-    "test": "node --test",
+    "test": "node --test test/server-helpers.test.js",
+    "test:integration": "node --env-file=.env.test --test test/integration.test.js",
+    "test:integration:db": "docker compose -f docker-compose.test.yml up -d",
     "migrate": "node migrate.js",
     "seed": "node seed.js",
     "seed:demo": "node seed.js demo"

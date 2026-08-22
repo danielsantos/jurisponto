@@ -1,0 +1,13 @@
+services:
+  db-test:
+    image: mysql:8.4
+    container_name: rotadocaso-db-test
+    environment:
+      MYSQL_DATABASE: rotadocaso_test
+      MYSQL_USER: rotadocaso_test
+      MYSQL_PASSWORD: rotadocaso_test
+      MYSQL_ROOT_PASSWORD: rotadocaso_test_root
+    ports:
+      - "3307:3306"
+    tmpfs:
+      - /var/lib/mysql

@@ -38,4 +38,8 @@ async function migrate() {
   await pool.end();
 }
 
-migrate().catch((error) => { console.error('Falha ao aplicar migrations:', error); process.exitCode = 1; });
+if (require.main === module) {
+  migrate().catch((error) => { console.error('Falha ao aplicar migrations:', error); process.exitCode = 1; });
+}
+
+module.exports = { migrate };

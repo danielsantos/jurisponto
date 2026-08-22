@@ -78,12 +78,13 @@ As rotas de cadastro, login, confirmacao de e-mail e recuperacao de senha possue
 
 Cada evento relevante de documento agora gera trilha em `document_audit_logs`, cobrindo criacao de solicitacao, alteracoes operacionais e download de arquivo. A auditoria registra quem executou a acao, quando ocorreu, qual foi a acao, `requestId`, IP e `user-agent`, alem de metadados uteis do evento.
 
-## Testes da v1
+## Testes automatizados
 
 Para a v1, a cobertura automatizada foi priorizada nos riscos mais sensiveis de backend: autenticacao baseada em sessao, permissoes e escopo por escritorio. A suite usa o runner nativo do Node, sem dependencia extra.
 
-- Execute com `npm test`.
-- Os testes atuais validam contrato de erro da API, leitura do token de sessao, matriz de permissoes e isolamento de escopo para clientes versus equipe.
+- Execute os testes rápidos de unidade com `npm test`.
+- Para os fluxos críticos reais, inicie um MySQL descartável exclusivo com `npm run test:integration:db` e execute `npm run test:integration`. Esse comando aplica as migrations no banco da porta 3307 e testa cadastro, confirmação de e-mail, login, recuperação de senha, revogação de sessão, isolamento entre escritórios, upload/download autenticado de documento e financeiro.
+- A suíte de integração nunca usa o banco de desenvolvimento: ela lê somente `.env.test` e remove, ao finalizar, apenas os dados criados com o prefixo `Teste integracao`.
 
 ## Proximas etapas de produto
 
