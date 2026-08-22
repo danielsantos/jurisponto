@@ -7,6 +7,7 @@ let documentTemplates = [];
 let caseUpdates = [];
 let activityFeed = [];
 let agendaEvents = [];
+let financialEntries = [];
 let currentUser = null;
 let selectedCaseFilter = 'all';
 let editingTeamUserId = null;
@@ -16,6 +17,8 @@ let pendingDocumentAction = null;
 let selectedAgendaStatus = 'pending';
 let selectedAgendaType = '';
 let selectedTimelineCaseId = '';
+let selectedFinanceStatus = 'pending';
+let selectedFinanceType = '';
 
 const caseFilters = {
   search: '',
@@ -172,6 +175,47 @@ function renderAgenda() {
   $('#dashboard-agenda-list').innerHTML = upcoming.length
     ? upcoming.map((item) => agendaEventRow(item, true)).join('')
     : '<div class="empty-state-card">Nenhum compromisso pendente. Sua agenda esta livre.</div>';
+}
+
+function formatCurrency(value) {
+  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(value || 0));
+}
+
+function financialTypeLabel(type) {
+  return type === 'income' ? 'Receita / honorario' : 'Despesa';
+}
+
+function financialStatusLabel(status) {
+  return status === 'paid' ? 'Pago' : 'Pendente';
+}
+
+function financialEntryRow(item) {
+  const relatedTo = [item.client, item.case].filter(Boolean).map(escapeHtml).join(' · ');
+  const installment = item.installmentTotal > 1 ? `Parcela ${item.installmentNumber}/${item.installmentTotal}` : 'Parcela unica';
+  return `<article class="financial-entry ${escapeAttribute(item.type)} ${item.status === 'paid' ? 'paid' : ''}">
+    <div class="financial-entry-kind"><span>${item.type === 'income' ? '+' : '−'}</span><small>${escapeHtml(financialTypeLabel(item.type))}</small></div>
+    <div class="financial-entry-copy"><h3>${escapeHtml(item.description)}</h3><p>${relatedTo || 'Sem cliente ou caso vinculado'} · ${escapeHtml(installment)}</p></div>
+    <div class="financial-entry-due"><small>Vencimento</small><strong>${escapeHtml(formatDate(item.dueDate))}</strong></div>
+    <div class="financial-entry-value"><strong>${escapeHtml(formatCurrency(item.amount))}</strong><span class="financial-status ${escapeAttribute(item.status)}">${escapeHtml(financialStatusLabel(item.status))}</span></div>
+    <div class="financial-entry-actions"><button class="secondary-button compact-button toggle-financial-entry" data-entry-id="${escapeAttribute(safeId(item.id))}">${item.status === 'paid' ? 'Reabrir' : 'Marcar pago'}</button><button class="secondary-button compact-button edit-financial-entry" data-entry-id="${escapeAttribute(safeId(item.id))}">Editar</button><button class="secondary-button compact-button danger-button delete-financial-entry" data-entry-id="${escapeAttribute(safeId(item.id))}">Excluir</button></div>
+  </article>`;
+}
+
+function renderFinancial() {
+  const summary = financialEntries.reduce((totals, item) => {
+    if (item.type === 'income' && item.status === 'pending') totals.receivable += Number(item.amount);
+    if (item.type === 'expense' && item.status === 'pending') totals.expenses += Number(item.amount);
+    if (item.type === 'income' && item.status === 'paid') totals.received += Number(item.amount);
+    return totals;
+  }, { receivable: 0, expenses: 0, received: 0 });
+  $('#finance-summary').innerHTML = `
+    <article><small>A receber</small><strong>${escapeHtml(formatCurrency(summary.receivable))}</strong><span>Receitas pendentes</span></article>
+    <article><small>Despesas pendentes</small><strong>${escapeHtml(formatCurrency(summary.expenses))}</strong><span>Custos a pagar</span></article>
+    <article><small>Recebido</small><strong>${escapeHtml(formatCurrency(summary.received))}</strong><span>Receitas confirmadas</span></article>`;
+  const visible = financialEntries.filter((item) => (selectedFinanceStatus === 'all' || item.status === selectedFinanceStatus) && (!selectedFinanceType || item.type === selectedFinanceType));
+  $('#finance-list').innerHTML = visible.length
+    ? visible.map(financialEntryRow).join('')
+    : '<div class="empty-state-card">Nenhum lancamento encontrado para este filtro.</div>';
 }
 
 function caseRow(item) {
@@ -712,10 +756,12 @@ function applyPermissions() {
   setDisabledState($('#manage-templates'), !currentUser.permissions.sendDocumentReminders);
   setDisabledState($('#new-template'), !currentUser.permissions.sendDocumentReminders);
   setDisabledState($('#create-update'), !currentUser.permissions.createCases);
+  setDisabledState($('#new-financial-entry'), !currentUser.permissions.createCases || isClient);
   setVisibility($('#settings-nav'), currentUser.permissions.accessSettings || currentUser.permissions.manageOfficeUsers);
 
   document.querySelector('[data-view="clients"]').hidden = isClient;
   document.querySelector('[data-view="agenda"]').hidden = isClient;
+  document.querySelector('[data-view="finance"]').hidden = isClient;
   document.querySelector('[data-view="updates"]').hidden = isClient;
 
   if (!currentUser.permissions.accessSettings && !currentUser.permissions.manageOfficeUsers && $('#settings-view').classList.contains('active-view')) {
@@ -749,6 +795,15 @@ function applyPermissions() {
     setDisabledState($('#update-submit'), !currentUser.permissions.createCases || isClient);
   }
 
+  const financeForm = $('#finance-form');
+  if (financeForm) {
+    Array.from(financeForm.elements).forEach((field) => {
+      if (field.tagName === 'BUTTON') return;
+      field.disabled = !currentUser.permissions.createCases || isClient;
+    });
+    setDisabledState($('#finance-submit'), !currentUser.permissions.createCases || isClient);
+  }
+
   renderRoleSummary();
 }
 
@@ -765,6 +820,7 @@ function showView(view) {
     dashboard: 'Visao geral',
     cases: 'Casos',
     agenda: 'Agenda',
+    finance: 'Financeiro',
     clients: 'Clientes',
     documents: 'Documentos',
     updates: 'Atualizacoes',
@@ -802,6 +858,37 @@ function closeAgendaModal() {
   $('#agenda-form').elements.eventId.value = '';
   $('#agenda-modal-title').textContent = 'Novo compromisso';
   $('#agenda-submit').textContent = 'Salvar compromisso ->';
+}
+
+function closeFinanceModal() {
+  $('#finance-modal-backdrop').hidden = true;
+  $('#finance-form').reset();
+  $('#finance-form').elements.entryId.value = '';
+  $('#finance-modal-title').textContent = 'Novo lancamento';
+  $('#finance-submit').textContent = 'Salvar lancamento ->';
+  $('#finance-installments-field').hidden = false;
+}
+
+function openFinanceModal(entryId = '') {
+  if (!currentUser?.permissions?.createCases) return showToast('Seu perfil nao pode registrar lancamentos.');
+  const entry = financialEntries.find((item) => item.id === entryId);
+  const form = $('#finance-form');
+  form.reset();
+  populateCaseSelects();
+  form.elements.entryId.value = entry?.id || '';
+  form.elements.description.value = entry?.description?.replace(/ \(\d+\/\d+\)$/, '') || '';
+  form.elements.type.value = entry?.type || 'income';
+  form.elements.amount.value = entry?.amount ?? '';
+  form.elements.dueDate.value = entry?.dueDate || '';
+  form.elements.installments.value = entry?.installmentTotal || '1';
+  form.elements.status.value = entry?.status || 'pending';
+  form.elements.clientId.value = entry?.clientId || '';
+  form.elements.caseId.value = entry?.caseId || '';
+  $('#finance-modal-title').textContent = entry ? 'Editar lancamento' : 'Novo lancamento';
+  $('#finance-submit').textContent = entry ? 'Salvar alteracoes ->' : 'Salvar lancamento ->';
+  $('#finance-installments-field').hidden = Boolean(entry);
+  $('#finance-modal-backdrop').hidden = false;
+  form.elements.description.focus();
 }
 
 function openAgendaModal(eventId = '') {
@@ -881,6 +968,8 @@ function populateCaseSelects() {
     timelineFilter.value = selectedTimelineCaseId;
   }
   $('#agenda-case-select').innerHTML = `<option value="">Nenhum caso</option>${options === '<option value="">Nenhum caso disponivel</option>' ? '' : options}`;
+  $('#finance-case-select').innerHTML = `<option value="">Nenhum caso</option>${options === '<option value="">Nenhum caso disponivel</option>' ? '' : options}`;
+  $('#finance-client-select').innerHTML = `<option value="">Nenhum cliente</option>${clients.map((client) => `<option value="${escapeAttribute(safeId(client.id))}">${escapeHtml(client.name)}</option>`).join('')}`;
   $('#document-case-filter').value = documentFilters.caseId;
 }
 
@@ -1012,6 +1101,16 @@ async function loadAgenda() {
   renderAgenda();
 }
 
+async function loadFinancialEntries() {
+  if (!currentUser?.permissions?.createCases || currentUser.role === 'client') {
+    financialEntries = [];
+    renderFinancial();
+    return;
+  }
+  financialEntries = await api('/api/financial?status=all');
+  renderFinancial();
+}
+
 async function loadData() {
   try {
     await Promise.all([
@@ -1023,7 +1122,8 @@ async function loadData() {
       loadDocumentTemplates(),
       loadCaseUpdates(),
       loadActivityFeed(),
-      loadAgenda()
+      loadAgenda(),
+      loadFinancialEntries()
     ]);
   } catch (error) {
     if (error.message.includes('sessao') || error.message.includes('cliente ainda nao foi vinculado')) {
@@ -1172,6 +1272,8 @@ $('#timeline-event-modal-backdrop').addEventListener('click', (event) => { if (e
 $('#close-timeline-event-modal').addEventListener('click', closeTimelineEventModal);
 $('#agenda-modal-backdrop').addEventListener('click', (event) => { if (event.target === event.currentTarget) closeAgendaModal(); });
 $('#close-agenda-modal').addEventListener('click', closeAgendaModal);
+$('#finance-modal-backdrop').addEventListener('click', (event) => { if (event.target === event.currentTarget) closeFinanceModal(); });
+$('#close-finance-modal').addEventListener('click', closeFinanceModal);
 $('#case-detail-modal-backdrop').addEventListener('click', (event) => { if (event.target === event.currentTarget) closeCaseDetailModal(); });
 $('#close-case-detail-modal').addEventListener('click', closeCaseDetailModal);
 $('#template-modal-backdrop').addEventListener('click', (event) => { if (event.target === event.currentTarget) closeTemplateModal(); });
@@ -1188,6 +1290,7 @@ document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape' && !$('#document-modal-backdrop').hidden) closeDocumentModal();
   if (event.key === 'Escape' && !$('#timeline-event-modal-backdrop').hidden) closeTimelineEventModal();
   if (event.key === 'Escape' && !$('#agenda-modal-backdrop').hidden) closeAgendaModal();
+  if (event.key === 'Escape' && !$('#finance-modal-backdrop').hidden) closeFinanceModal();
   if (event.key === 'Escape' && !$('#case-detail-modal-backdrop').hidden) closeCaseDetailModal();
   if (event.key === 'Escape' && !$('#template-modal-backdrop').hidden) closeTemplateModal();
   if (event.key === 'Escape' && !$('#template-apply-modal-backdrop').hidden) closeTemplateApplyModal();
@@ -1209,6 +1312,20 @@ document.querySelectorAll('.agenda-filter').forEach((button) => button.addEventL
 $('#agenda-type-filter').addEventListener('change', async (event) => {
   selectedAgendaType = event.target.value;
   await loadAgenda();
+});
+
+$('#new-financial-entry').addEventListener('click', () => openFinanceModal());
+
+document.querySelectorAll('.finance-filter').forEach((button) => button.addEventListener('click', () => {
+  document.querySelectorAll('.finance-filter').forEach((item) => item.classList.remove('selected'));
+  button.classList.add('selected');
+  selectedFinanceStatus = button.dataset.financeStatus;
+  renderFinancial();
+}));
+
+$('#finance-type-filter').addEventListener('change', (event) => {
+  selectedFinanceType = event.target.value;
+  renderFinancial();
 });
 
 $('#agenda-form').addEventListener('submit', async (event) => {
@@ -1233,6 +1350,31 @@ $('#agenda-form').addEventListener('submit', async (event) => {
   } finally {
     submit.disabled = false;
     submit.textContent = eventId ? 'Salvar alteracoes ->' : 'Salvar compromisso ->';
+  }
+});
+
+$('#finance-form').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const submit = $('#finance-submit');
+  const payload = Object.fromEntries(new FormData(form));
+  const entryId = safeId(payload.entryId);
+  submit.disabled = true;
+  submit.textContent = 'Salvando...';
+  try {
+    await api(entryId ? `/api/financial/${encodeURIComponent(entryId)}` : '/api/financial', {
+      method: entryId ? 'PATCH' : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    closeFinanceModal();
+    await Promise.all([loadFinancialEntries(), loadCaseUpdates()]);
+    showToast(entryId ? 'Lancamento atualizado.' : 'Lancamento financeiro registrado.');
+  } catch (error) {
+    showToast(error.message);
+  } finally {
+    submit.disabled = false;
+    submit.textContent = entryId ? 'Salvar alteracoes ->' : 'Salvar lancamento ->';
   }
 });
 
@@ -1697,6 +1839,9 @@ $('#case-task-form').addEventListener('submit', async (event) => {
 });
 
 document.addEventListener('click', async (event) => {
+  const toggleFinancialButton = event.target.closest('.toggle-financial-entry');
+  const editFinancialButton = event.target.closest('.edit-financial-entry');
+  const deleteFinancialButton = event.target.closest('.delete-financial-entry');
   const toggleAgendaButton = event.target.closest('.toggle-agenda-event');
   const editAgendaButton = event.target.closest('.edit-agenda-event');
   const deleteAgendaButton = event.target.closest('.delete-agenda-event');
@@ -1715,6 +1860,52 @@ document.addEventListener('click', async (event) => {
   const requestResendButton = event.target.closest('.request-resend');
   const applyTemplateButton = event.target.closest('.apply-template');
   const editTemplateButton = event.target.closest('.edit-template');
+
+  if (toggleFinancialButton) {
+    const entryId = safeId(toggleFinancialButton.dataset.entryId);
+    const currentEntry = financialEntries.find((item) => item.id === entryId);
+    if (!currentEntry) return;
+    toggleFinancialButton.disabled = true;
+    try {
+      await api(`/api/financial/${encodeURIComponent(entryId)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          description: currentEntry.description,
+          type: currentEntry.type,
+          amount: currentEntry.amount,
+          dueDate: currentEntry.dueDate,
+          status: currentEntry.status === 'paid' ? 'pending' : 'paid',
+          clientId: currentEntry.clientId,
+          caseId: currentEntry.caseId
+        })
+      });
+      await Promise.all([loadFinancialEntries(), loadCaseUpdates()]);
+      showToast(currentEntry.status === 'paid' ? 'Lancamento reaberto.' : 'Pagamento confirmado.');
+    } catch (error) {
+      toggleFinancialButton.disabled = false;
+      showToast(error.message);
+    }
+    return;
+  }
+
+  if (editFinancialButton) {
+    openFinanceModal(safeId(editFinancialButton.dataset.entryId));
+    return;
+  }
+
+  if (deleteFinancialButton) {
+    const entryId = safeId(deleteFinancialButton.dataset.entryId);
+    if (!window.confirm('Excluir este lancamento financeiro?')) return;
+    try {
+      await api(`/api/financial/${encodeURIComponent(entryId)}`, { method: 'DELETE' });
+      await loadFinancialEntries();
+      showToast('Lancamento excluido.');
+    } catch (error) {
+      showToast(error.message);
+    }
+    return;
+  }
 
   if (toggleAgendaButton) {
     const eventId = safeId(toggleAgendaButton.dataset.eventId);

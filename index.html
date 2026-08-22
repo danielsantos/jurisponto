@@ -27,6 +27,7 @@
           <button class="nav-link active" data-view="dashboard"><span>[]</span> Visao geral</button>
           <button class="nav-link" data-view="cases"><span>#</span> Casos</button>
           <button class="nav-link" data-view="agenda"><span>o</span> Agenda</button>
+          <button class="nav-link" data-view="finance"><span>$</span> Financeiro</button>
           <button class="nav-link" data-view="clients"><span>@</span> Clientes</button>
           <button class="nav-link" data-view="documents"><span>=</span> Documentos <b id="nav-document-count">0</b></button>
           <button class="nav-link" data-view="updates"><span>+</span> Atualizacoes</button>
@@ -142,6 +143,15 @@
           <section class="panel agenda-panel">
             <div class="filter-row"><button class="agenda-filter selected" data-agenda-status="pending">Pendentes</button><button class="agenda-filter" data-agenda-status="completed">Concluidos</button><button class="agenda-filter" data-agenda-status="all">Todos</button><label class="inline-select"><span>Tipo</span><select id="agenda-type-filter"><option value="">Todos os tipos</option><option value="task">Tarefa</option><option value="deadline">Prazo</option><option value="hearing">Audiencia</option><option value="meeting">Reuniao</option></select></label></div>
             <div id="agenda-list" class="agenda-list"></div>
+          </section>
+        </section>
+
+        <section id="finance-view" class="view">
+          <div class="content-title"><div><p class="eyebrow">FINANCEIRO BASICO</p><h1>Receitas e despesas</h1><p class="subcopy">Acompanhe honorarios, custos e vencimentos vinculados aos seus casos.</p></div><button class="new-case" id="new-financial-entry">+ Novo lancamento</button></div>
+          <div class="finance-summary" id="finance-summary"></div>
+          <section class="panel finance-panel">
+            <div class="filter-row"><button class="finance-filter selected" data-finance-status="pending">Pendentes</button><button class="finance-filter" data-finance-status="paid">Pagos</button><button class="finance-filter" data-finance-status="all">Todos</button><label class="inline-select"><span>Tipo</span><select id="finance-type-filter"><option value="">Receitas e despesas</option><option value="income">Receitas / honorarios</option><option value="expense">Despesas</option></select></label></div>
+            <div id="finance-list" class="finance-list"></div>
           </section>
         </section>
 
@@ -279,6 +289,27 @@
           <label>Lembrete<select name="reminderMinutes"><option value="">Sem lembrete</option><option value="15">15 minutos antes</option><option value="60">1 hora antes</option><option value="1440">1 dia antes</option><option value="10080">1 semana antes</option></select></label>
           <label>Caso relacionado <small>(opcional)</small><select name="caseId" id="agenda-case-select"><option value="">Nenhum caso</option></select></label>
           <div class="form-actions"><button class="new-case" type="submit" id="agenda-submit">Salvar compromisso -></button></div>
+        </form>
+      </div>
+    </div>
+
+    <div class="modal-backdrop" id="finance-modal-backdrop" hidden>
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="finance-modal-title">
+        <button class="close-modal" id="close-finance-modal" aria-label="Fechar">x</button>
+        <p class="eyebrow">FINANCEIRO</p>
+        <h2 id="finance-modal-title">Novo lancamento</h2>
+        <p>Registre receitas de honorarios ou despesas do escritorio.</p>
+        <form id="finance-form">
+          <input type="hidden" name="entryId" />
+          <label>Descricao<input required name="description" placeholder="Ex.: Honorarios iniciais" /></label>
+          <label>Tipo<select required name="type"><option value="income">Receita / honorario</option><option value="expense">Despesa</option></select></label>
+          <label>Valor de cada parcela<input required name="amount" type="number" min="0.01" step="0.01" placeholder="0,00" /></label>
+          <label>Vencimento<input required name="dueDate" type="date" /></label>
+          <label id="finance-installments-field">Parcelas<select name="installments"><option value="1">Parcela unica</option><option value="2">2 parcelas</option><option value="3">3 parcelas</option><option value="4">4 parcelas</option><option value="6">6 parcelas</option><option value="12">12 parcelas</option></select></label>
+          <label>Situacao<select name="status"><option value="pending">Pendente</option><option value="paid">Pago</option></select></label>
+          <label>Cliente <small>(opcional)</small><select name="clientId" id="finance-client-select"><option value="">Nenhum cliente</option></select></label>
+          <label>Caso relacionado <small>(opcional)</small><select name="caseId" id="finance-case-select"><option value="">Nenhum caso</option></select></label>
+          <div class="form-actions"><button class="new-case" type="submit" id="finance-submit">Salvar lancamento -></button></div>
         </form>
       </div>
     </div>

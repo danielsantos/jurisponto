@@ -89,6 +89,8 @@ const allowedDocumentStatuses = new Set(['pending', 'received', 'rejected']);
 const allowedAgendaEventTypes = new Set(['task', 'deadline', 'hearing', 'meeting']);
 const allowedAgendaPriorities = new Set(['low', 'normal', 'high', 'urgent']);
 const allowedTimelineEventTypes = new Set(['note', 'client_contact', 'hearing', 'document', 'payment', 'decision']);
+const allowedFinancialEntryTypes = new Set(['income', 'expense']);
+const allowedFinancialStatuses = new Set(['pending', 'paid']);
 
 const permissionMap = {
   admin: {
@@ -409,6 +411,26 @@ function parseTimelineEventType(value) {
   return parseAgendaEnum(value || 'note', allowedTimelineEventTypes, 'Tipo de evento');
 }
 
+function parseFinancialAmount(value) {
+  const normalized = String(value ?? '').trim().replace(',', '.');
+  if (!/^\d+(\.\d{1,2})?$/.test(normalized)) {
+    throw new Error('Informe um valor valido.');
+  }
+  const amount = Number(normalized);
+  if (!Number.isFinite(amount) || amount <= 0 || amount > 9999999999.99) {
+    throw new Error('Informe um valor maior que zero.');
+  }
+  return Number(amount.toFixed(2));
+}
+
+function parseFinancialInstallments(value) {
+  const installments = Number.parseInt(String(value ?? '1'), 10);
+  if (!Number.isInteger(installments) || installments < 1 || installments > 120) {
+    throw new Error('Informe entre 1 e 120 parcelas.');
+  }
+  return installments;
+}
+
 function parseDocumentStatus(value) {
   const normalized = sanitizeTextInput(value, 20);
   if (!allowedDocumentStatuses.has(normalized)) throw new Error('Status do documento invalido.');
@@ -505,6 +527,25 @@ function formatAgendaEvent(row) {
     caseId: row.case_id || null,
     case: row.case_title || null,
     client: row.client_name || null
+  };
+}
+
+function formatFinancialEntry(row) {
+  return {
+    id: row.id,
+    description: row.description,
+    type: row.entry_type,
+    amount: Number(row.amount),
+    dueDate: row.due_date,
+    status: row.status,
+    paidAt: row.paid_at || null,
+    installmentNumber: Number(row.installment_number || 1),
+    installmentTotal: Number(row.installment_total || 1),
+    clientId: row.client_id || null,
+    client: row.client_name || null,
+    caseId: row.case_id || null,
+    case: row.case_title || null,
+    createdAt: row.created_at || null
   };
 }
 
@@ -2450,6 +2491,185 @@ app.delete('/api/agenda/:id', requireAuth, requirePermission('createCases'), asy
     const [result] = await pool.query('DELETE FROM agenda_events WHERE id = ? AND office_id = ?', [eventId, req.user.office_id]);
     if (!result.affectedRows) return sendError(req, res, { status: 404, code: 'AGENDA_EVENT_NOT_FOUND', message: 'Compromisso nao encontrado.' });
     sendSuccess(req, res, { data: { message: 'Compromisso removido com sucesso.' } });
+  } catch (error) {
+    next(error);
+  }
+});
+
+async function getFinancialEntry(db, entryId, officeId) {
+  const [rows] = await db.query(
+    `SELECT e.id, e.description, e.entry_type, e.amount, e.due_date, e.status, e.paid_at,
+            e.installment_number, e.installment_total, e.client_id, e.case_id, e.created_at,
+            cl.name AS client_name, c.title AS case_title
+     FROM financial_entries e
+     LEFT JOIN clients cl ON cl.id = e.client_id
+     LEFT JOIN cases c ON c.id = e.case_id
+     WHERE e.id = ? AND e.office_id = ? LIMIT 1`,
+    [entryId, officeId]
+  );
+  return rows[0] || null;
+}
+
+async function validateFinancialRelations(db, { officeId, clientId, caseId }) {
+  let resolvedClientId = clientId;
+  if (caseId) {
+    const [caseRows] = await db.query(
+      `SELECT c.id, c.client_id FROM cases c JOIN clients cl ON cl.id = c.client_id
+       WHERE c.id = ? AND cl.office_id = ? LIMIT 1`,
+      [caseId, officeId]
+    );
+    if (!caseRows[0]) throw new ApiError(404, 'CASE_NOT_FOUND', 'Caso nao encontrado.');
+    if (resolvedClientId && resolvedClientId !== caseRows[0].client_id) {
+      throw new ApiError(400, 'VALIDATION_ERROR', 'O cliente selecionado deve ser o mesmo cliente do caso.');
+    }
+    resolvedClientId = caseRows[0].client_id;
+  }
+  if (resolvedClientId) {
+    const [clientRows] = await db.query('SELECT id FROM clients WHERE id = ? AND office_id = ? LIMIT 1', [resolvedClientId, officeId]);
+    if (!clientRows[0]) throw new ApiError(404, 'CLIENT_NOT_FOUND', 'Cliente nao encontrado.');
+  }
+  return resolvedClientId;
+}
+
+app.get('/api/financial', requireAuth, requirePermission('createCases'), async (req, res, next) => {
+  try {
+    const status = sanitizeTextInput(req.query.status, 20) || 'pending';
+    const type = sanitizeTextInput(req.query.type, 20);
+    if (status !== 'all' && !allowedFinancialStatuses.has(status)) {
+      return sendError(req, res, { status: 400, code: 'VALIDATION_ERROR', message: 'Situacao financeira invalida.' });
+    }
+    if (type && !allowedFinancialEntryTypes.has(type)) {
+      return sendError(req, res, { status: 400, code: 'VALIDATION_ERROR', message: 'Tipo de lancamento invalido.' });
+    }
+    const filters = ['e.office_id = ?'];
+    const params = [req.user.office_id];
+    if (status !== 'all') { filters.push('e.status = ?'); params.push(status); }
+    if (type) { filters.push('e.entry_type = ?'); params.push(type); }
+    const [rows] = await pool.query(
+      `SELECT e.id, e.description, e.entry_type, e.amount, e.due_date, e.status, e.paid_at,
+              e.installment_number, e.installment_total, e.client_id, e.case_id, e.created_at,
+              cl.name AS client_name, c.title AS case_title
+       FROM financial_entries e
+       LEFT JOIN clients cl ON cl.id = e.client_id
+       LEFT JOIN cases c ON c.id = e.case_id
+       WHERE ${filters.join(' AND ')}
+       ORDER BY e.status = 'paid', e.due_date ASC, e.created_at DESC`,
+      params
+    );
+    sendSuccess(req, res, { data: rows.map(formatFinancialEntry) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post('/api/financial', requireAuth, requirePermission('createCases'), async (req, res, next) => {
+  let description; let entryType; let amount; let dueDate; let status; let installments; let clientId; let caseId;
+  try {
+    description = parseRequiredText(req.body.description, 'Informe a descricao do lancamento.', { min: 2, max: 500 });
+    entryType = parseAgendaEnum(req.body.type, allowedFinancialEntryTypes, 'Tipo de lancamento');
+    amount = parseFinancialAmount(req.body.amount);
+    dueDate = parseOptionalDate(req.body.dueDate);
+    if (!dueDate) throw new Error('Informe a data de vencimento.');
+    status = parseAgendaEnum(req.body.status || 'pending', allowedFinancialStatuses, 'Situacao');
+    installments = parseFinancialInstallments(req.body.installments);
+    clientId = parseOptionalUuid(req.body.clientId, 'Cliente invalido.');
+    caseId = parseOptionalUuid(req.body.caseId, 'Caso invalido.');
+  } catch (error) {
+    return sendError(req, res, { status: 400, code: 'VALIDATION_ERROR', message: error.message });
+  }
+
+  const db = await pool.getConnection();
+  try {
+    await db.beginTransaction();
+    clientId = await validateFinancialRelations(db, { officeId: req.user.office_id, clientId, caseId });
+    const ids = [];
+    for (let index = 0; index < installments; index += 1) {
+      const id = crypto.randomUUID();
+      ids.push(id);
+      const installmentDescription = installments > 1 ? `${description} (${index + 1}/${installments})` : description;
+      await db.query(
+        `INSERT INTO financial_entries (id, office_id, client_id, case_id, created_by_user_id, description, entry_type, amount, due_date, status, paid_at, installment_number, installment_total)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, DATE_ADD(?, INTERVAL ? MONTH), ?, ?, ?, ?)`,
+        [id, req.user.office_id, clientId, caseId, req.user.id, installmentDescription, entryType, amount, dueDate, index, status, status === 'paid' ? new Date() : null, index + 1, installments]
+      );
+      if (caseId && status === 'paid') {
+        await recordCaseTimelineEvent(db, {
+          caseId, officeId: req.user.office_id, authorUserId: req.user.id, eventType: 'payment', automatic: true, clientVisible: false,
+          title: entryType === 'income' ? 'Honorario recebido' : 'Despesa paga',
+          message: `${installmentDescription}: R$ ${amount.toFixed(2).replace('.', ',')}`
+        });
+      }
+    }
+    const placeholders = ids.map(() => '?').join(', ');
+    const [rows] = await db.query(
+      `SELECT e.id, e.description, e.entry_type, e.amount, e.due_date, e.status, e.paid_at, e.installment_number, e.installment_total, e.client_id, e.case_id, e.created_at, cl.name AS client_name, c.title AS case_title
+       FROM financial_entries e LEFT JOIN clients cl ON cl.id = e.client_id LEFT JOIN cases c ON c.id = e.case_id
+       WHERE e.id IN (${placeholders}) ORDER BY e.installment_number`, ids
+    );
+    await db.commit();
+    sendSuccess(req, res, { status: 201, data: rows.map(formatFinancialEntry) });
+  } catch (error) {
+    await db.rollback();
+    next(error);
+  } finally {
+    db.release();
+  }
+});
+
+app.patch('/api/financial/:id', requireAuth, requirePermission('createCases'), async (req, res, next) => {
+  let entryId; let description; let entryType; let amount; let dueDate; let status; let clientId; let caseId;
+  try {
+    entryId = parseUuidParam(req.params.id, 'Lancamento invalido.');
+    description = parseRequiredText(req.body.description, 'Informe a descricao do lancamento.', { min: 2, max: 500 });
+    entryType = parseAgendaEnum(req.body.type, allowedFinancialEntryTypes, 'Tipo de lancamento');
+    amount = parseFinancialAmount(req.body.amount);
+    dueDate = parseOptionalDate(req.body.dueDate);
+    if (!dueDate) throw new Error('Informe a data de vencimento.');
+    status = parseAgendaEnum(req.body.status, allowedFinancialStatuses, 'Situacao');
+    clientId = parseOptionalUuid(req.body.clientId, 'Cliente invalido.');
+    caseId = parseOptionalUuid(req.body.caseId, 'Caso invalido.');
+  } catch (error) {
+    return sendError(req, res, { status: 400, code: 'VALIDATION_ERROR', message: error.message });
+  }
+
+  const db = await pool.getConnection();
+  try {
+    await db.beginTransaction();
+    const previous = await getFinancialEntry(db, entryId, req.user.office_id);
+    if (!previous) {
+      await db.rollback();
+      return sendError(req, res, { status: 404, code: 'FINANCIAL_ENTRY_NOT_FOUND', message: 'Lancamento nao encontrado.' });
+    }
+    clientId = await validateFinancialRelations(db, { officeId: req.user.office_id, clientId, caseId });
+    await db.query(
+      `UPDATE financial_entries SET description = ?, entry_type = ?, amount = ?, due_date = ?, status = ?, paid_at = ?, client_id = ?, case_id = ?
+       WHERE id = ? AND office_id = ?`,
+      [description, entryType, amount, dueDate, status, status === 'paid' ? (previous.paid_at || new Date()) : null, clientId, caseId, entryId, req.user.office_id]
+    );
+    if (status === 'paid' && previous.status !== 'paid' && caseId) {
+      await recordCaseTimelineEvent(db, {
+        caseId, officeId: req.user.office_id, authorUserId: req.user.id, eventType: 'payment', automatic: true, clientVisible: false,
+        title: entryType === 'income' ? 'Honorario recebido' : 'Despesa paga',
+        message: `${description}: R$ ${amount.toFixed(2).replace('.', ',')}`
+      });
+    }
+    const row = await getFinancialEntry(db, entryId, req.user.office_id);
+    await db.commit();
+    sendSuccess(req, res, { data: formatFinancialEntry(row) });
+  } catch (error) {
+    await db.rollback();
+    next(error);
+  } finally {
+    db.release();
+  }
+});
+
+app.delete('/api/financial/:id', requireAuth, requirePermission('createCases'), async (req, res, next) => {
+  try {
+    const entryId = parseUuidParam(req.params.id, 'Lancamento invalido.');
+    const [result] = await pool.query('DELETE FROM financial_entries WHERE id = ? AND office_id = ?', [entryId, req.user.office_id]);
+    if (!result.affectedRows) return sendError(req, res, { status: 404, code: 'FINANCIAL_ENTRY_NOT_FOUND', message: 'Lancamento nao encontrado.' });
+    sendSuccess(req, res, { data: { message: 'Lancamento removido com sucesso.' } });
   } catch (error) {
     next(error);
   }
