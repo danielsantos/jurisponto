@@ -197,22 +197,24 @@
         <section id="updates-view" class="view">
           <div class="content-title">
             <div>
-              <p class="eyebrow">ATUALIZACOES PARA CLIENTES</p>
-              <h1>Mensagens em linguagem simples</h1>
-              <p class="subcopy">Registre atualizacoes claras por caso para aumentar confianca e reduzir retrabalho.</p>
+              <p class="eyebrow">LINHA DO TEMPO</p>
+              <h1>Historico do caso</h1>
+              <p class="subcopy">Registre os eventos importantes de cada caso em uma linha do tempo unica.</p>
             </div>
-            <button class="new-case" id="create-update">+ Nova atualizacao</button>
+            <button class="new-case" id="create-update">+ Novo evento</button>
           </div>
           <section class="panel settings-panel">
-            <div class="panel-heading"><div><h2>Nova atualizacao</h2><p>Escreva como voce falaria com o cliente: objetiva, simples e sem juridiquês desnecessario.</p></div></div>
+            <div class="panel-heading"><div><h2>Novo evento</h2><p>Registre uma anotacao, contato, audiencia, documento, pagamento ou decisao.</p></div></div>
             <div class="settings-layout">
               <div>
                 <form id="update-form" class="team-form">
                   <label>Caso<select required name="caseId" id="update-case-select"></select></label>
-                  <label>Titulo simples<input required name="title" placeholder="Ex.: Recebemos seus documentos" /></label>
-                  <label>Mensagem<textarea required name="message" rows="6" placeholder="Ex.: Recebemos os documentos principais. Agora vamos revisar e avisamos voce sobre o proximo passo."></textarea></label>
+                  <label>Tipo de evento<select name="eventType"><option value="note">Anotacao</option><option value="client_contact">Contato com cliente</option><option value="hearing">Audiencia</option><option value="document">Documento</option><option value="payment">Pagamento</option><option value="decision">Decisao</option></select></label>
+                  <label>Titulo<input required name="title" placeholder="Ex.: Audiencia confirmada" /></label>
+                  <label>Descricao<textarea required name="message" rows="6" placeholder="Registre as informacoes relevantes para consultar depois."></textarea></label>
+                  <label class="checkbox-label"><input name="clientVisible" type="checkbox" value="true" /> Compartilhar este evento com o cliente</label>
                   <div class="form-actions">
-                    <button class="new-case" type="submit" id="update-submit">Enviar atualizacao -></button>
+                    <button class="new-case" type="submit" id="update-submit">Registrar evento -></button>
                   </div>
                 </form>
               </div>

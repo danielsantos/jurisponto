@@ -428,22 +428,27 @@ function renderUpdates() {
   if (!list) return;
 
   if (!currentUser?.permissions?.createCases || currentUser.role === 'client') {
-    list.innerHTML = '<div class="empty-state-card">Seu perfil nao pode publicar atualizacoes para clientes.</div>';
+    list.innerHTML = '<div class="empty-state-card">Seu perfil nao pode registrar eventos na linha do tempo.</div>';
     return;
   }
 
   if (!caseUpdates.length) {
-    list.innerHTML = '<div class="empty-state-card">Nenhuma atualizacao publicada ainda. As mensagens enviadas para os clientes aparecerao aqui.</div>';
+    list.innerHTML = '<div class="empty-state-card">Nenhum evento registrado ainda. Os acontecimentos importantes deste caso aparecerao aqui.</div>';
     return;
   }
 
   list.innerHTML = caseUpdates.map((item) => `
-    <article class="update-card">
+    <article class="update-card timeline-event-card">
+      <span class="timeline-event-type ${escapeAttribute(item.eventType)}">${escapeHtml(timelineEventTypeLabel(item.eventType))}${item.automatic ? ' · automatico' : ''}</span>
       <h3>${escapeHtml(item.title)}</h3>
       <p>${escapeHtml(item.message)}</p>
-      <small>${escapeHtml(item.case)} · ${escapeHtml(item.client)} · ${escapeHtml(formatDateTime(item.createdAt))}</small>
+      <small>${escapeHtml(item.case)} · ${escapeHtml(item.client)} · ${escapeHtml(formatDateTime(item.createdAt))}${item.clientVisible ? ' · visivel ao cliente' : ' · interno'}</small>
     </article>
   `).join('');
+}
+
+function timelineEventTypeLabel(type) {
+  return { note: 'Anotacao', client_contact: 'Contato com cliente', hearing: 'Audiencia', document: 'Documento', payment: 'Pagamento', decision: 'Decisao' }[type] || 'Evento';
 }
 
 function renderActivityFeed() {
@@ -1439,7 +1444,9 @@ $('#update-form').addEventListener('submit', async (event) => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         title: payload.title,
-        message: payload.message
+        message: payload.message,
+        eventType: payload.eventType,
+        clientVisible: payload.clientVisible === 'true'
       })
     });
     caseUpdates.unshift(createdUpdate);
@@ -1448,12 +1455,12 @@ $('#update-form').addEventListener('submit', async (event) => {
     form.reset();
     populateCaseSelects();
     await loadActivityFeed();
-    showToast('Atualizacao publicada para o cliente.');
+    showToast('Evento registrado na linha do tempo.');
   } catch (error) {
     showToast(error.message);
   } finally {
     submit.disabled = false;
-    submit.textContent = 'Enviar atualizacao ->';
+    submit.textContent = 'Registrar evento ->';
   }
 });
 

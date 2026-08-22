@@ -88,6 +88,7 @@ const allowedCaseStatusKeys = new Set(Object.keys(caseStatusLabels));
 const allowedDocumentStatuses = new Set(['pending', 'received', 'rejected']);
 const allowedAgendaEventTypes = new Set(['task', 'deadline', 'hearing', 'meeting']);
 const allowedAgendaPriorities = new Set(['low', 'normal', 'high', 'urgent']);
+const allowedTimelineEventTypes = new Set(['note', 'client_contact', 'hearing', 'document', 'payment', 'decision']);
 
 const permissionMap = {
   admin: {
@@ -404,6 +405,10 @@ function parseAgendaReminder(value) {
   return parsed;
 }
 
+function parseTimelineEventType(value) {
+  return parseAgendaEnum(value || 'note', allowedTimelineEventTypes, 'Tipo de evento');
+}
+
 function parseDocumentStatus(value) {
   const normalized = sanitizeTextInput(value, 20);
   if (!allowedDocumentStatuses.has(normalized)) throw new Error('Status do documento invalido.');
@@ -554,9 +559,31 @@ function formatCaseUpdate(row) {
     client: row.client_name,
     title: row.title,
     message: row.message,
+    eventType: row.event_type || 'note',
+    automatic: Boolean(row.is_automatic),
+    clientVisible: Boolean(row.client_visible),
     authorName: row.author_name || 'Equipe Rota do Caso',
     createdAt: row.created_at
   };
+}
+
+async function recordCaseTimelineEvent(db, {
+  caseId,
+  officeId,
+  authorUserId = null,
+  eventType = 'note',
+  title,
+  message,
+  automatic = false,
+  clientVisible = true
+}) {
+  const [[idRow]] = await db.query('SELECT UUID() AS id');
+  await db.query(
+    `INSERT INTO case_updates (id, case_id, office_id, author_user_id, event_type, is_automatic, client_visible, title, message)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [idRow.id, caseId, officeId, authorUserId, eventType, automatic ? 1 : 0, clientVisible ? 1 : 0, title, message]
+  );
+  return idRow.id;
 }
 
 function formatActivityItem(row) {
@@ -697,9 +724,12 @@ async function fetchCaseUpdates(db, user, { caseId = null, limit = 50 } = {}) {
     filters.push('c.id = ?');
     params.push(caseId);
   }
+  if (user.role === 'client') {
+    filters.push('cu.client_visible = 1');
+  }
 
   const [rows] = await db.query(
-    `SELECT cu.id, cu.case_id, cu.title, cu.message, cu.created_at,
+    `SELECT cu.id, cu.case_id, cu.event_type, cu.is_automatic, cu.client_visible, cu.title, cu.message, cu.created_at,
             c.title AS case_title, cl.name AS client_name, u.full_name AS author_name
      FROM case_updates cu
      JOIN cases c ON c.id = cu.case_id
@@ -731,7 +761,7 @@ async function fetchActivityFeed(db, user, { limit = 50 } = {}) {
        FROM case_updates cu
        JOIN cases c ON c.id = cu.case_id
        JOIN clients cl ON cl.id = c.client_id
-       WHERE ${scope.clause}
+       WHERE ${scope.clause}${user.role === 'client' ? ' AND cu.client_visible = 1' : ''}
 
        UNION ALL
 
@@ -854,7 +884,7 @@ async function notifyClientAboutDocument(req, { documentId, clientEmail, clientN
 async function fetchDocumentUploadLink(token) {
   if (!token || token.length < 40) return null;
   const [rows] = await pool.query(
-    `SELECT l.id AS link_id, l.document_id, d.name AS document_name, d.status, d.file_path, c.title AS case_title, cl.name AS client_name, cl.office_id
+    `SELECT l.id AS link_id, l.document_id, d.case_id, d.name AS document_name, d.status, d.file_path, c.title AS case_title, cl.name AS client_name, cl.office_id
      FROM document_upload_links l
      JOIN documents d ON d.id = l.document_id
      JOIN cases c ON c.id = d.case_id
@@ -2817,6 +2847,16 @@ app.post('/api/documents/request', requireAuth, requirePermission('sendDocumentR
         status: 'pending'
       }
     });
+    await recordCaseTimelineEvent(db, {
+      caseId,
+      officeId: req.user.office_id,
+      authorUserId: req.user.id,
+      eventType: 'document',
+      automatic: true,
+      clientVisible: true,
+      title: 'Documento solicitado',
+      message: `${name} foi adicionado ao checklist do caso.`
+    });
 
     await db.commit();
     const notification = await notifyClientAboutDocument(req, {
@@ -2952,6 +2992,16 @@ app.patch('/api/documents/:id/status', requireAuth, requirePermission('sendDocum
         note
       }
     });
+    await recordCaseTimelineEvent(db, {
+      caseId: document.case_id,
+      officeId: document.office_id || req.user.office_id,
+      authorUserId: req.user.id,
+      eventType: 'document',
+      automatic: true,
+      clientVisible: true,
+      title: status === 'received' ? 'Documento recebido' : status === 'rejected' ? 'Documento devolvido para ajuste' : 'Documento marcado como pendente',
+      message: note || `${document.name} teve o status atualizado.`
+    });
     await db.commit();
 
     const updatedDocument = await fetchDocumentById(req.user, documentId);
@@ -3021,6 +3071,16 @@ app.post('/api/documents/:id/request-resend', requireAuth, requirePermission('se
         note
       }
     });
+    await recordCaseTimelineEvent(db, {
+      caseId: document.case_id,
+      officeId: document.office_id || req.user.office_id,
+      authorUserId: req.user.id,
+      eventType: 'document',
+      automatic: true,
+      clientVisible: true,
+      title: 'Reenvio de documento solicitado',
+      message: `${document.name}: ${note}`
+    });
     await db.commit();
 
     const updatedDocument = await fetchDocumentById(req.user, documentId);
@@ -3070,10 +3130,14 @@ app.post('/api/cases/:id/updates', requireAuth, requirePermission('createCases')
   let caseId;
   let title;
   let message;
+  let eventType;
+  let clientVisible;
   try {
     caseId = parseUuidParam(req.params.id, 'Caso invalido.');
     title = parseRequiredText(req.body.title, 'Informe um titulo simples para a atualizacao.', { min: 2, max: 255 });
     message = parseRequiredText(req.body.message, 'Escreva a atualizacao em linguagem simples.', { min: 8, max: 5000 });
+    eventType = parseTimelineEventType(req.body.eventType);
+    clientVisible = req.body.clientVisible === true || req.body.clientVisible === 'true';
   } catch (error) {
     return sendError(req, res, {
       status: 400,
@@ -3097,13 +3161,13 @@ app.post('/api/cases/:id/updates', requireAuth, requirePermission('createCases')
 
     const [[updateIdResult]] = await db.query('SELECT UUID() AS id');
     await db.query(
-      `INSERT INTO case_updates (id, case_id, office_id, author_user_id, title, message)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [updateIdResult.id, caseId, req.user.office_id, req.user.id, title, message]
+    `INSERT INTO case_updates (id, case_id, office_id, author_user_id, event_type, is_automatic, client_visible, title, message)
+       VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?)`,
+      [updateIdResult.id, caseId, req.user.office_id, req.user.id, eventType, clientVisible ? 1 : 0, title, message]
     );
 
     const [rows] = await db.query(
-      `SELECT cu.id, cu.case_id, cu.title, cu.message, cu.created_at,
+      `SELECT cu.id, cu.case_id, cu.event_type, cu.is_automatic, cu.client_visible, cu.title, cu.message, cu.created_at,
               c.title AS case_title, cl.name AS client_name, u.full_name AS author_name
        FROM case_updates cu
        JOIN cases c ON c.id = cu.case_id
@@ -3208,6 +3272,15 @@ app.post('/api/document-upload-link/upload', upload.single('file'), async (req, 
         fileSize: req.file.size,
         mimeType: sanitizeTextInput(req.file.mimetype, 255)
       }
+    });
+    await recordCaseTimelineEvent(db, {
+      caseId: link.case_id,
+      officeId: link.office_id,
+      eventType: 'document',
+      automatic: true,
+      clientVisible: true,
+      title: 'Documento enviado pelo cliente',
+      message: `${link.document_name} foi enviado para revisao.`
     });
     await db.commit();
     if (link.file_path && link.file_path !== req.file.filename) await removeStoredUpload(link.file_path);
