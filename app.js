@@ -15,6 +15,7 @@ let activeCaseDetail = null;
 let pendingDocumentAction = null;
 let selectedAgendaStatus = 'pending';
 let selectedAgendaType = '';
+let selectedTimelineCaseId = '';
 
 const caseFilters = {
   search: '',
@@ -432,23 +433,59 @@ function renderUpdates() {
     return;
   }
 
+  const selectedCase = cases.find((item) => item.id === selectedTimelineCaseId);
+  $('#timeline-case-summary').textContent = selectedCase
+    ? `${selectedCase.client} · ${selectedCase.title}`
+    : 'Visao geral com eventos de todos os casos.';
+
   if (!caseUpdates.length) {
-    list.innerHTML = '<div class="empty-state-card">Nenhum evento registrado ainda. Os acontecimentos importantes deste caso aparecerao aqui.</div>';
+    list.innerHTML = '<div class="empty-state-card">Nenhum evento registrado para este caso ainda.</div>';
     return;
   }
 
-  list.innerHTML = caseUpdates.map((item) => `
-    <article class="update-card timeline-event-card">
-      <span class="timeline-event-type ${escapeAttribute(item.eventType)}">${escapeHtml(timelineEventTypeLabel(item.eventType))}${item.automatic ? ' · automatico' : ''}</span>
-      <h3>${escapeHtml(item.title)}</h3>
-      <p>${escapeHtml(item.message)}</p>
-      <small>${escapeHtml(item.case)} · ${escapeHtml(item.client)} · ${escapeHtml(formatDateTime(item.createdAt))}${item.clientVisible ? ' · visivel ao cliente' : ' · interno'}</small>
-    </article>
+  const groupedByDate = caseUpdates.reduce((groups, item) => {
+    const date = new Date(item.createdAt);
+    const key = Number.isNaN(date.getTime()) ? item.createdAt : date.toISOString().slice(0, 10);
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(item);
+    return groups;
+  }, {});
+
+  list.innerHTML = Object.entries(groupedByDate).map(([date, items]) => `
+    <section class="timeline-day">
+      <h2>${escapeHtml(formatTimelineDay(date))}</h2>
+      <div class="timeline-day-events">
+        ${items.map((item) => `<article class="timeline-entry">
+          <div class="timeline-entry-time">${escapeHtml(formatTimelineTime(item.createdAt))}</div>
+          <div class="timeline-entry-marker ${escapeAttribute(item.eventType)}">${escapeHtml(timelineEventIcon(item.eventType))}</div>
+          <div class="timeline-entry-card">
+            <div class="timeline-entry-heading"><span class="timeline-event-type ${escapeAttribute(item.eventType)}">${escapeHtml(timelineEventTypeLabel(item.eventType))}${item.automatic ? ' · automatico' : ''}</span>${item.clientVisible ? '<span class="client-chip">Cliente</span>' : '<span class="client-chip">Interno</span>'}</div>
+            <h3>${escapeHtml(item.title)}</h3>
+            <p>${escapeHtml(item.message)}</p>
+            ${selectedCase ? '' : `<small>${escapeHtml(item.client)} · ${escapeHtml(item.case)}</small>`}
+          </div>
+        </article>`).join('')}
+      </div>
+    </section>
   `).join('');
 }
 
 function timelineEventTypeLabel(type) {
   return { note: 'Anotacao', client_contact: 'Contato com cliente', hearing: 'Audiencia', document: 'Documento', payment: 'Pagamento', decision: 'Decisao' }[type] || 'Evento';
+}
+
+function timelineEventIcon(type) {
+  return { note: '•', client_contact: '@', hearing: '!', document: '=', payment: '$', decision: '✓' }[type] || '•';
+}
+
+function formatTimelineDay(value) {
+  const date = new Date(`${value}T12:00:00`);
+  return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' }).format(date);
+}
+
+function formatTimelineTime(value) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? '' : new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit' }).format(date);
 }
 
 function renderActivityFeed() {
@@ -745,6 +782,20 @@ function closeDocumentModal() {
   $('#document-modal-backdrop').hidden = true;
 }
 
+function closeTimelineEventModal() {
+  $('#timeline-event-modal-backdrop').hidden = true;
+  $('#update-form').reset();
+}
+
+function openTimelineEventModal() {
+  if (!currentUser?.permissions?.createCases) return showToast('Seu perfil nao pode registrar eventos.');
+  populateCaseSelects();
+  $('#update-form').reset();
+  if (selectedTimelineCaseId) $('#update-form').elements.caseId.value = selectedTimelineCaseId;
+  $('#timeline-event-modal-backdrop').hidden = false;
+  $('#update-form').elements.title.focus();
+}
+
 function closeAgendaModal() {
   $('#agenda-modal-backdrop').hidden = true;
   $('#agenda-form').reset();
@@ -823,6 +874,12 @@ function populateCaseSelects() {
   $('#document-case-filter').innerHTML = `<option value="">Todos</option>${options === '<option value="">Nenhum caso disponivel</option>' ? '' : options}`;
   $('#template-apply-case-select').innerHTML = options;
   $('#update-case-select').innerHTML = options;
+  const timelineFilter = $('#timeline-case-filter');
+  if (timelineFilter) {
+    timelineFilter.innerHTML = `<option value="">Todos os casos</option>${options === '<option value="">Nenhum caso disponivel</option>' ? '' : options}`;
+    if (!selectedTimelineCaseId && availableCases[0]) selectedTimelineCaseId = availableCases[0].id;
+    timelineFilter.value = selectedTimelineCaseId;
+  }
   $('#agenda-case-select').innerHTML = `<option value="">Nenhum caso</option>${options === '<option value="">Nenhum caso disponivel</option>' ? '' : options}`;
   $('#document-case-filter').value = documentFilters.caseId;
 }
@@ -869,6 +926,7 @@ async function loadCases() {
   if (caseFilters.archived) params.set('archived', caseFilters.archived);
   cases = await api(`/api/cases${params.toString() ? `?${params.toString()}` : ''}`);
   renderCases();
+  if (selectedTimelineCaseId) await loadCaseUpdates();
 }
 
 async function loadDocuments() {
@@ -929,6 +987,7 @@ async function loadDocumentTemplates() {
 async function loadCaseUpdates() {
   const params = new URLSearchParams();
   params.set('limit', currentUser?.role === 'client' ? '12' : '50');
+  if (selectedTimelineCaseId) params.set('caseId', selectedTimelineCaseId);
   caseUpdates = await api(`/api/updates?${params.toString()}`);
   renderUpdates();
   renderClientPortal();
@@ -1109,6 +1168,8 @@ $('.close-modal').addEventListener('click', closeCaseModal);
 $('#modal-backdrop').addEventListener('click', (event) => { if (event.target === event.currentTarget) closeCaseModal(); });
 $('#document-modal-backdrop').addEventListener('click', (event) => { if (event.target === event.currentTarget) closeDocumentModal(); });
 $('#close-document-modal').addEventListener('click', closeDocumentModal);
+$('#timeline-event-modal-backdrop').addEventListener('click', (event) => { if (event.target === event.currentTarget) closeTimelineEventModal(); });
+$('#close-timeline-event-modal').addEventListener('click', closeTimelineEventModal);
 $('#agenda-modal-backdrop').addEventListener('click', (event) => { if (event.target === event.currentTarget) closeAgendaModal(); });
 $('#close-agenda-modal').addEventListener('click', closeAgendaModal);
 $('#case-detail-modal-backdrop').addEventListener('click', (event) => { if (event.target === event.currentTarget) closeCaseDetailModal(); });
@@ -1125,6 +1186,7 @@ $('#case-client-select').addEventListener('change', updateNewCaseClientFields);
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape' && !$('#modal-backdrop').hidden) closeCaseModal();
   if (event.key === 'Escape' && !$('#document-modal-backdrop').hidden) closeDocumentModal();
+  if (event.key === 'Escape' && !$('#timeline-event-modal-backdrop').hidden) closeTimelineEventModal();
   if (event.key === 'Escape' && !$('#agenda-modal-backdrop').hidden) closeAgendaModal();
   if (event.key === 'Escape' && !$('#case-detail-modal-backdrop').hidden) closeCaseDetailModal();
   if (event.key === 'Escape' && !$('#template-modal-backdrop').hidden) closeTemplateModal();
@@ -1263,9 +1325,13 @@ $('#new-template').addEventListener('click', () => {
 });
 
 $('#create-update').addEventListener('click', () => {
-  if (!currentUser?.permissions?.createCases) return showToast('Seu perfil nao pode publicar atualizacoes.');
   showView('updates');
-  $('#update-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  openTimelineEventModal();
+});
+
+$('#timeline-case-filter').addEventListener('change', async (event) => {
+  selectedTimelineCaseId = event.target.value;
+  await loadCaseUpdates();
 });
 
 $('#document-search').addEventListener('input', async (event) => {
@@ -1449,10 +1515,10 @@ $('#update-form').addEventListener('submit', async (event) => {
         clientVisible: payload.clientVisible === 'true'
       })
     });
-    caseUpdates.unshift(createdUpdate);
-    renderUpdates();
+    if (!selectedTimelineCaseId) selectedTimelineCaseId = createdUpdate.caseId;
+    closeTimelineEventModal();
+    await loadCaseUpdates();
     renderClientPortal();
-    form.reset();
     populateCaseSelects();
     await loadActivityFeed();
     showToast('Evento registrado na linha do tempo.');

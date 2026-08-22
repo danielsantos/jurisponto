@@ -199,29 +199,16 @@
             <div>
               <p class="eyebrow">LINHA DO TEMPO</p>
               <h1>Historico do caso</h1>
-              <p class="subcopy">Registre os eventos importantes de cada caso em uma linha do tempo unica.</p>
+              <p class="subcopy">Acompanhe cada acontecimento na ordem em que ele ocorreu.</p>
             </div>
             <button class="new-case" id="create-update">+ Novo evento</button>
           </div>
-          <section class="panel settings-panel">
-            <div class="panel-heading"><div><h2>Novo evento</h2><p>Registre uma anotacao, contato, audiencia, documento, pagamento ou decisao.</p></div></div>
-            <div class="settings-layout">
-              <div>
-                <form id="update-form" class="team-form">
-                  <label>Caso<select required name="caseId" id="update-case-select"></select></label>
-                  <label>Tipo de evento<select name="eventType"><option value="note">Anotacao</option><option value="client_contact">Contato com cliente</option><option value="hearing">Audiencia</option><option value="document">Documento</option><option value="payment">Pagamento</option><option value="decision">Decisao</option></select></label>
-                  <label>Titulo<input required name="title" placeholder="Ex.: Audiencia confirmada" /></label>
-                  <label>Descricao<textarea required name="message" rows="6" placeholder="Registre as informacoes relevantes para consultar depois."></textarea></label>
-                  <label class="checkbox-label"><input name="clientVisible" type="checkbox" value="true" /> Compartilhar este evento com o cliente</label>
-                  <div class="form-actions">
-                    <button class="new-case" type="submit" id="update-submit">Registrar evento -></button>
-                  </div>
-                </form>
-              </div>
-              <div>
-                <div id="updates-list" class="document-templates-list"></div>
-              </div>
+          <section class="panel case-timeline-panel">
+            <div class="timeline-toolbar">
+              <label>Exibir historico de<select id="timeline-case-filter"></select></label>
+              <p id="timeline-case-summary">Selecione um caso para acompanhar seus eventos.</p>
             </div>
+            <div id="updates-list" class="case-timeline"></div>
           </section>
         </section>
 
@@ -258,6 +245,23 @@
           </section>
         </section>
       </main>
+    </div>
+
+    <div class="modal-backdrop" id="timeline-event-modal-backdrop" hidden>
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="timeline-event-modal-title">
+        <button class="close-modal" id="close-timeline-event-modal" aria-label="Fechar">x</button>
+        <p class="eyebrow">LINHA DO TEMPO</p>
+        <h2 id="timeline-event-modal-title">Novo evento</h2>
+        <p>Registre uma anotacao, contato, audiencia, documento, pagamento ou decisao.</p>
+        <form id="update-form">
+          <label>Caso<select required name="caseId" id="update-case-select"></select></label>
+          <label>Tipo de evento<select name="eventType"><option value="note">Anotacao</option><option value="client_contact">Contato com cliente</option><option value="hearing">Audiencia</option><option value="document">Documento</option><option value="payment">Pagamento</option><option value="decision">Decisao</option></select></label>
+          <label>Titulo<input required name="title" placeholder="Ex.: Audiencia confirmada" /></label>
+          <label>Descricao<textarea required name="message" rows="6" placeholder="Registre as informacoes relevantes para consultar depois."></textarea></label>
+          <label class="checkbox-label"><input name="clientVisible" type="checkbox" value="true" /> Compartilhar este evento com o cliente</label>
+          <div class="form-actions"><button class="new-case" type="submit" id="update-submit">Registrar evento -></button></div>
+        </form>
+      </div>
     </div>
 
     <div class="modal-backdrop" id="agenda-modal-backdrop" hidden>
