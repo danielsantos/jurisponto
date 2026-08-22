@@ -28,6 +28,21 @@ const documentFilters = {
 
 const $ = (selector) => document.querySelector(selector);
 
+function syncModalScrollLock() {
+  const hasOpenModal = [...document.querySelectorAll('.modal-backdrop')].some((backdrop) => !backdrop.hidden);
+  document.documentElement.classList.toggle('modal-open', hasOpenModal);
+  document.body.classList.toggle('modal-open', hasOpenModal);
+}
+
+document.querySelectorAll('.modal-backdrop').forEach((backdrop) => {
+  new MutationObserver(syncModalScrollLock).observe(backdrop, {
+    attributes: true,
+    attributeFilter: ['hidden']
+  });
+});
+
+syncModalScrollLock();
+
 async function api(url, options) {
   const response = await fetch(url, options);
   const body = await response.json().catch(() => ({}));
