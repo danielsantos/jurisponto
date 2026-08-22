@@ -1,4 +1,4 @@
-version: '3.8'
+version: '3.3'
 
 services:
   db-test:
@@ -11,5 +11,3 @@ services:
       MYSQL_ROOT_PASSWORD: rotadocaso_test_root
     ports:
       - "3307:3306"
-    tmpfs:
-      - /var/lib/mysql
