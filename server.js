@@ -531,12 +531,15 @@ function formatAgendaEvent(row) {
 }
 
 function formatFinancialEntry(row) {
+  const dueDate = row.due_date instanceof Date
+    ? row.due_date.toISOString().slice(0, 10)
+    : String(row.due_date || '').slice(0, 10);
   return {
     id: row.id,
     description: row.description,
     type: row.entry_type,
     amount: Number(row.amount),
-    dueDate: row.due_date,
+    dueDate,
     status: row.status,
     paidAt: row.paid_at || null,
     installmentNumber: Number(row.installment_number || 1),
