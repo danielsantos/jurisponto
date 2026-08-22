@@ -6,12 +6,15 @@ let assignableUsers = [];
 let documentTemplates = [];
 let caseUpdates = [];
 let activityFeed = [];
+let agendaEvents = [];
 let currentUser = null;
 let selectedCaseFilter = 'all';
 let editingTeamUserId = null;
 let editingClientId = null;
 let activeCaseDetail = null;
 let pendingDocumentAction = null;
+let selectedAgendaStatus = 'pending';
+let selectedAgendaType = '';
 
 const caseFilters = {
   search: '',
@@ -130,6 +133,44 @@ function documentStatusLabel(status) {
     received: 'Recebido',
     rejected: 'Recusado'
   }[status] || status;
+}
+
+function agendaTypeLabel(type) {
+  return { task: 'Tarefa', deadline: 'Prazo', hearing: 'Audiencia', meeting: 'Reuniao' }[type] || type;
+}
+
+function agendaPriorityLabel(priority) {
+  return { low: 'Baixa', normal: 'Normal', high: 'Alta', urgent: 'Urgente' }[priority] || priority;
+}
+
+function agendaReminderLabel(minutes) {
+  if (minutes == null) return 'Sem lembrete';
+  return { 15: '15 min antes', 60: '1 h antes', 1440: '1 dia antes', 10080: '1 semana antes' }[minutes] || `${minutes} min antes`;
+}
+
+function formatAgendaDateTime(value) {
+  if (!value) return 'Sem data';
+  return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+    .format(new Date(`${value}:00`)).replace('.', '');
+}
+
+function agendaEventRow(item, compact = false) {
+  return `<article class="agenda-event ${item.status === 'completed' ? 'completed' : ''}">
+    <div class="agenda-time"><strong>${escapeHtml(formatAgendaDateTime(item.startsAt))}</strong><span>${escapeHtml(agendaTypeLabel(item.type))}</span></div>
+    <div class="agenda-copy"><h3>${escapeHtml(item.title)}</h3><p>${item.case ? `${escapeHtml(item.client)} · ${escapeHtml(item.case)} · ` : ''}${escapeHtml(agendaReminderLabel(item.reminderMinutes))}</p></div>
+    <div class="agenda-chips"><span class="priority-chip ${escapeAttribute(item.priority)}">${escapeHtml(agendaPriorityLabel(item.priority))}</span>${item.status === 'completed' ? '<span class="client-chip success-chip">Concluido</span>' : ''}</div>
+    ${compact ? '' : `<div class="agenda-actions"><button class="secondary-button compact-button toggle-agenda-event" data-event-id="${escapeAttribute(safeId(item.id))}">${item.status === 'completed' ? 'Reabrir' : 'Concluir'}</button><button class="secondary-button compact-button edit-agenda-event" data-event-id="${escapeAttribute(safeId(item.id))}">Editar</button><button class="secondary-button compact-button danger-button delete-agenda-event" data-event-id="${escapeAttribute(safeId(item.id))}">Excluir</button></div>`}
+  </article>`;
+}
+
+function renderAgenda() {
+  const upcoming = agendaEvents.filter((item) => item.status === 'pending').slice(0, 4);
+  $('#agenda-list').innerHTML = agendaEvents.length
+    ? agendaEvents.map((item) => agendaEventRow(item)).join('')
+    : '<div class="empty-state-card">Nenhum compromisso encontrado para este filtro.</div>';
+  $('#dashboard-agenda-list').innerHTML = upcoming.length
+    ? upcoming.map((item) => agendaEventRow(item, true)).join('')
+    : '<div class="empty-state-card">Nenhum compromisso pendente. Sua agenda esta livre.</div>';
 }
 
 function caseRow(item) {
@@ -632,6 +673,7 @@ function applyPermissions() {
   setVisibility($('#settings-nav'), currentUser.permissions.accessSettings || currentUser.permissions.manageOfficeUsers);
 
   document.querySelector('[data-view="clients"]').hidden = isClient;
+  document.querySelector('[data-view="agenda"]').hidden = isClient;
   document.querySelector('[data-view="updates"]').hidden = isClient;
 
   if (!currentUser.permissions.accessSettings && !currentUser.permissions.manageOfficeUsers && $('#settings-view').classList.contains('active-view')) {
@@ -680,6 +722,7 @@ function showView(view) {
   $('#page-title').textContent = {
     dashboard: 'Visao geral',
     cases: 'Casos',
+    agenda: 'Agenda',
     clients: 'Clientes',
     documents: 'Documentos',
     updates: 'Atualizacoes',
@@ -695,6 +738,31 @@ function closeCaseModal() {
 
 function closeDocumentModal() {
   $('#document-modal-backdrop').hidden = true;
+}
+
+function closeAgendaModal() {
+  $('#agenda-modal-backdrop').hidden = true;
+  $('#agenda-form').reset();
+  $('#agenda-form').elements.eventId.value = '';
+  $('#agenda-modal-title').textContent = 'Novo compromisso';
+  $('#agenda-submit').textContent = 'Salvar compromisso ->';
+}
+
+function openAgendaModal(eventId = '') {
+  const event = agendaEvents.find((item) => item.id === eventId);
+  const form = $('#agenda-form');
+  form.reset();
+  populateCaseSelects();
+  form.elements.eventId.value = event?.id || '';
+  form.elements.title.value = event?.title || '';
+  form.elements.type.value = event?.type || 'task';
+  form.elements.startsAt.value = event?.startsAt || '';
+  form.elements.priority.value = event?.priority || 'normal';
+  form.elements.reminderMinutes.value = event?.reminderMinutes ?? '';
+  form.elements.caseId.value = event?.caseId || '';
+  $('#agenda-modal-title').textContent = event ? 'Editar compromisso' : 'Novo compromisso';
+  $('#agenda-submit').textContent = event ? 'Salvar alteracoes ->' : 'Salvar compromisso ->';
+  $('#agenda-modal-backdrop').hidden = false;
 }
 
 function closeCaseDetailModal() {
@@ -750,6 +818,7 @@ function populateCaseSelects() {
   $('#document-case-filter').innerHTML = `<option value="">Todos</option>${options === '<option value="">Nenhum caso disponivel</option>' ? '' : options}`;
   $('#template-apply-case-select').innerHTML = options;
   $('#update-case-select').innerHTML = options;
+  $('#agenda-case-select').innerHTML = `<option value="">Nenhum caso</option>${options === '<option value="">Nenhum caso disponivel</option>' ? '' : options}`;
   $('#document-case-filter').value = documentFilters.caseId;
 }
 
@@ -867,6 +936,18 @@ async function loadActivityFeed() {
   renderActivityFeed();
 }
 
+async function loadAgenda() {
+  if (!currentUser?.permissions?.createCases || currentUser.role === 'client') {
+    agendaEvents = [];
+    renderAgenda();
+    return;
+  }
+  const params = new URLSearchParams({ status: selectedAgendaStatus });
+  if (selectedAgendaType) params.set('type', selectedAgendaType);
+  agendaEvents = await api(`/api/agenda?${params.toString()}`);
+  renderAgenda();
+}
+
 async function loadData() {
   try {
     await Promise.all([
@@ -877,7 +958,8 @@ async function loadData() {
       loadTeam(),
       loadDocumentTemplates(),
       loadCaseUpdates(),
-      loadActivityFeed()
+      loadActivityFeed(),
+      loadAgenda()
     ]);
   } catch (error) {
     if (error.message.includes('sessao') || error.message.includes('cliente ainda nao foi vinculado')) {
@@ -1022,6 +1104,8 @@ $('.close-modal').addEventListener('click', closeCaseModal);
 $('#modal-backdrop').addEventListener('click', (event) => { if (event.target === event.currentTarget) closeCaseModal(); });
 $('#document-modal-backdrop').addEventListener('click', (event) => { if (event.target === event.currentTarget) closeDocumentModal(); });
 $('#close-document-modal').addEventListener('click', closeDocumentModal);
+$('#agenda-modal-backdrop').addEventListener('click', (event) => { if (event.target === event.currentTarget) closeAgendaModal(); });
+$('#close-agenda-modal').addEventListener('click', closeAgendaModal);
 $('#case-detail-modal-backdrop').addEventListener('click', (event) => { if (event.target === event.currentTarget) closeCaseDetailModal(); });
 $('#close-case-detail-modal').addEventListener('click', closeCaseDetailModal);
 $('#template-modal-backdrop').addEventListener('click', (event) => { if (event.target === event.currentTarget) closeTemplateModal(); });
@@ -1036,10 +1120,53 @@ $('#case-client-select').addEventListener('change', updateNewCaseClientFields);
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape' && !$('#modal-backdrop').hidden) closeCaseModal();
   if (event.key === 'Escape' && !$('#document-modal-backdrop').hidden) closeDocumentModal();
+  if (event.key === 'Escape' && !$('#agenda-modal-backdrop').hidden) closeAgendaModal();
   if (event.key === 'Escape' && !$('#case-detail-modal-backdrop').hidden) closeCaseDetailModal();
   if (event.key === 'Escape' && !$('#template-modal-backdrop').hidden) closeTemplateModal();
   if (event.key === 'Escape' && !$('#template-apply-modal-backdrop').hidden) closeTemplateApplyModal();
   if (event.key === 'Escape' && !$('#document-note-modal-backdrop').hidden) closeDocumentNoteModal();
+});
+
+$('#new-agenda-event').addEventListener('click', () => {
+  if (!currentUser?.permissions?.createCases) return showToast('Seu perfil nao pode criar compromissos.');
+  openAgendaModal();
+});
+
+document.querySelectorAll('.agenda-filter').forEach((button) => button.addEventListener('click', async () => {
+  document.querySelectorAll('.agenda-filter').forEach((item) => item.classList.remove('selected'));
+  button.classList.add('selected');
+  selectedAgendaStatus = button.dataset.agendaStatus;
+  await loadAgenda();
+}));
+
+$('#agenda-type-filter').addEventListener('change', async (event) => {
+  selectedAgendaType = event.target.value;
+  await loadAgenda();
+});
+
+$('#agenda-form').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const submit = $('#agenda-submit');
+  const payload = Object.fromEntries(new FormData(form));
+  const eventId = safeId(payload.eventId);
+  submit.disabled = true;
+  submit.textContent = 'Salvando...';
+  try {
+    const saved = await api(eventId ? `/api/agenda/${encodeURIComponent(eventId)}` : '/api/agenda', {
+      method: eventId ? 'PATCH' : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...payload, status: eventId ? (agendaEvents.find((item) => item.id === eventId)?.status || 'pending') : 'pending' })
+    });
+    closeAgendaModal();
+    await loadAgenda();
+    showToast(eventId ? 'Compromisso atualizado.' : 'Compromisso adicionado a agenda.');
+  } catch (error) {
+    showToast(error.message);
+  } finally {
+    submit.disabled = false;
+    submit.textContent = eventId ? 'Salvar alteracoes ->' : 'Salvar compromisso ->';
+  }
 });
 
 $('#case-form').addEventListener('submit', async (event) => {
@@ -1497,6 +1624,9 @@ $('#case-task-form').addEventListener('submit', async (event) => {
 });
 
 document.addEventListener('click', async (event) => {
+  const toggleAgendaButton = event.target.closest('.toggle-agenda-event');
+  const editAgendaButton = event.target.closest('.edit-agenda-event');
+  const deleteAgendaButton = event.target.closest('.delete-agenda-event');
   const remindButton = event.target.closest('.remind');
   const editButton = event.target.closest('.edit-team-user');
   const deleteButton = event.target.closest('.delete-team-user');
@@ -1512,6 +1642,52 @@ document.addEventListener('click', async (event) => {
   const requestResendButton = event.target.closest('.request-resend');
   const applyTemplateButton = event.target.closest('.apply-template');
   const editTemplateButton = event.target.closest('.edit-template');
+
+  if (toggleAgendaButton) {
+    const eventId = safeId(toggleAgendaButton.dataset.eventId);
+    const currentEvent = agendaEvents.find((item) => item.id === eventId);
+    if (!currentEvent) return;
+    toggleAgendaButton.disabled = true;
+    try {
+      await api(`/api/agenda/${encodeURIComponent(eventId)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: currentEvent.title,
+          type: currentEvent.type,
+          startsAt: currentEvent.startsAt,
+          priority: currentEvent.priority,
+          reminderMinutes: currentEvent.reminderMinutes,
+          caseId: currentEvent.caseId,
+          status: currentEvent.status === 'completed' ? 'pending' : 'completed'
+        })
+      });
+      await loadAgenda();
+      showToast(currentEvent.status === 'completed' ? 'Compromisso reaberto.' : 'Compromisso concluido.');
+    } catch (error) {
+      toggleAgendaButton.disabled = false;
+      showToast(error.message);
+    }
+    return;
+  }
+
+  if (editAgendaButton) {
+    openAgendaModal(safeId(editAgendaButton.dataset.eventId));
+    return;
+  }
+
+  if (deleteAgendaButton) {
+    const eventId = safeId(deleteAgendaButton.dataset.eventId);
+    if (!window.confirm('Excluir este compromisso da agenda?')) return;
+    try {
+      await api(`/api/agenda/${encodeURIComponent(eventId)}`, { method: 'DELETE' });
+      await loadAgenda();
+      showToast('Compromisso excluido.');
+    } catch (error) {
+      showToast(error.message);
+    }
+    return;
+  }
 
   if (remindButton) {
     remindButton.disabled = true;

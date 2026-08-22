@@ -86,6 +86,8 @@ const caseStatusLabels = {
 
 const allowedCaseStatusKeys = new Set(Object.keys(caseStatusLabels));
 const allowedDocumentStatuses = new Set(['pending', 'received', 'rejected']);
+const allowedAgendaEventTypes = new Set(['task', 'deadline', 'hearing', 'meeting']);
+const allowedAgendaPriorities = new Set(['low', 'normal', 'high', 'urgent']);
 
 const permissionMap = {
   admin: {
@@ -377,6 +379,31 @@ function parseClosureFinancialStatus(value) {
   return normalized;
 }
 
+function parseAgendaDateTime(value) {
+  const normalized = sanitizeTextInput(value, 30);
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(normalized)) {
+    throw new Error('Informe data e hora validas.');
+  }
+  const parsed = new Date(`${normalized}:00`);
+  if (Number.isNaN(parsed.getTime())) throw new Error('Informe data e hora validas.');
+  return normalized.replace('T', ' ') + ':00';
+}
+
+function parseAgendaEnum(value, allowedValues, label) {
+  const normalized = sanitizeTextInput(value, 20);
+  if (!allowedValues.has(normalized)) throw new Error(`${label} invalido.`);
+  return normalized;
+}
+
+function parseAgendaReminder(value) {
+  if (value == null || value === '') return null;
+  const parsed = Number.parseInt(String(value), 10);
+  if (!Number.isInteger(parsed) || parsed < 0 || parsed > 10080) {
+    throw new Error('Lembrete invalido.');
+  }
+  return parsed;
+}
+
 function parseDocumentStatus(value) {
   const normalized = sanitizeTextInput(value, 20);
   if (!allowedDocumentStatuses.has(normalized)) throw new Error('Status do documento invalido.');
@@ -457,6 +484,22 @@ function formatCaseTask(row) {
     done: Boolean(row.is_done),
     completedAt: row.completed_at || null,
     createdAt: row.created_at || null
+  };
+}
+
+function formatAgendaEvent(row) {
+  return {
+    id: row.id,
+    title: row.title,
+    type: row.event_type,
+    startsAt: row.starts_at,
+    priority: row.priority,
+    reminderMinutes: row.reminder_minutes == null ? null : Number(row.reminder_minutes),
+    status: row.status,
+    completedAt: row.completed_at || null,
+    caseId: row.case_id || null,
+    case: row.case_title || null,
+    client: row.client_name || null
   };
 }
 
@@ -2243,6 +2286,142 @@ app.delete('/api/cases/:caseId/tasks/:taskId', requireAuth, requirePermission('c
     next(error);
   } finally {
     db.release();
+  }
+});
+
+app.get('/api/agenda', requireAuth, requirePermission('createCases'), async (req, res, next) => {
+  try {
+    const status = sanitizeTextInput(req.query.status, 20) || 'pending';
+    if (!['pending', 'completed', 'all'].includes(status)) {
+      return sendError(req, res, { status: 400, code: 'VALIDATION_ERROR', message: 'Status da agenda invalido.' });
+    }
+    const eventType = sanitizeTextInput(req.query.type, 20);
+    if (eventType && !allowedAgendaEventTypes.has(eventType)) {
+      return sendError(req, res, { status: 400, code: 'VALIDATION_ERROR', message: 'Tipo de compromisso invalido.' });
+    }
+    const filters = ['e.office_id = ?'];
+    const params = [req.user.office_id];
+    if (status !== 'all') {
+      filters.push('e.status = ?');
+      params.push(status);
+    }
+    if (eventType) {
+      filters.push('e.event_type = ?');
+      params.push(eventType);
+    }
+    const [rows] = await pool.query(
+      `SELECT e.id, e.title, e.event_type, DATE_FORMAT(e.starts_at, '%Y-%m-%dT%H:%i') AS starts_at,
+              e.priority, e.reminder_minutes, e.status, e.completed_at, e.case_id,
+              c.title AS case_title, cl.name AS client_name
+       FROM agenda_events e
+       LEFT JOIN cases c ON c.id = e.case_id
+       LEFT JOIN clients cl ON cl.id = c.client_id
+       WHERE ${filters.join(' AND ')}
+       ORDER BY e.status = 'completed', e.starts_at ASC, e.created_at DESC`,
+      params
+    );
+    sendSuccess(req, res, { data: rows.map(formatAgendaEvent) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post('/api/agenda', requireAuth, requirePermission('createCases'), async (req, res, next) => {
+  let title;
+  let eventType;
+  let startsAt;
+  let priority;
+  let reminderMinutes;
+  let caseId;
+  try {
+    title = parseRequiredText(req.body.title, 'Informe o titulo do compromisso.', { min: 2, max: 500 });
+    eventType = parseAgendaEnum(req.body.type, allowedAgendaEventTypes, 'Tipo de compromisso');
+    startsAt = parseAgendaDateTime(req.body.startsAt);
+    priority = parseAgendaEnum(req.body.priority || 'normal', allowedAgendaPriorities, 'Prioridade');
+    reminderMinutes = parseAgendaReminder(req.body.reminderMinutes);
+    caseId = parseOptionalUuid(req.body.caseId, 'Caso invalido.');
+  } catch (error) {
+    return sendError(req, res, { status: 400, code: 'VALIDATION_ERROR', message: error.message });
+  }
+  try {
+    if (caseId) {
+      const [caseRows] = await pool.query(
+        `SELECT c.id FROM cases c JOIN clients cl ON cl.id = c.client_id WHERE c.id = ? AND cl.office_id = ? LIMIT 1`,
+        [caseId, req.user.office_id]
+      );
+      if (!caseRows[0]) return sendError(req, res, { status: 404, code: 'CASE_NOT_FOUND', message: 'Caso nao encontrado.' });
+    }
+    const [[idRow]] = await pool.query('SELECT UUID() AS id');
+    await pool.query(
+      `INSERT INTO agenda_events (id, office_id, case_id, created_by_user_id, title, event_type, starts_at, priority, reminder_minutes)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [idRow.id, req.user.office_id, caseId, req.user.id, title, eventType, startsAt, priority, reminderMinutes]
+    );
+    const [rows] = await pool.query(
+      `SELECT e.id, e.title, e.event_type, DATE_FORMAT(e.starts_at, '%Y-%m-%dT%H:%i') AS starts_at,
+              e.priority, e.reminder_minutes, e.status, e.completed_at, e.case_id,
+              c.title AS case_title, cl.name AS client_name
+       FROM agenda_events e LEFT JOIN cases c ON c.id = e.case_id LEFT JOIN clients cl ON cl.id = c.client_id
+       WHERE e.id = ? AND e.office_id = ?`,
+      [idRow.id, req.user.office_id]
+    );
+    sendSuccess(req, res, { status: 201, data: formatAgendaEvent(rows[0]) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.patch('/api/agenda/:id', requireAuth, requirePermission('createCases'), async (req, res, next) => {
+  let eventId;
+  let title;
+  let eventType;
+  let startsAt;
+  let priority;
+  let reminderMinutes;
+  let caseId;
+  const completed = req.body.status === 'completed';
+  try {
+    eventId = parseUuidParam(req.params.id, 'Compromisso invalido.');
+    title = parseRequiredText(req.body.title, 'Informe o titulo do compromisso.', { min: 2, max: 500 });
+    eventType = parseAgendaEnum(req.body.type, allowedAgendaEventTypes, 'Tipo de compromisso');
+    startsAt = parseAgendaDateTime(req.body.startsAt);
+    priority = parseAgendaEnum(req.body.priority || 'normal', allowedAgendaPriorities, 'Prioridade');
+    reminderMinutes = parseAgendaReminder(req.body.reminderMinutes);
+    caseId = parseOptionalUuid(req.body.caseId, 'Caso invalido.');
+  } catch (error) {
+    return sendError(req, res, { status: 400, code: 'VALIDATION_ERROR', message: error.message });
+  }
+  try {
+    if (caseId) {
+      const [caseRows] = await pool.query(`SELECT c.id FROM cases c JOIN clients cl ON cl.id = c.client_id WHERE c.id = ? AND cl.office_id = ? LIMIT 1`, [caseId, req.user.office_id]);
+      if (!caseRows[0]) return sendError(req, res, { status: 404, code: 'CASE_NOT_FOUND', message: 'Caso nao encontrado.' });
+    }
+    const [result] = await pool.query(
+      `UPDATE agenda_events SET title = ?, event_type = ?, starts_at = ?, priority = ?, reminder_minutes = ?, case_id = ?,
+       status = ?, completed_at = ? WHERE id = ? AND office_id = ?`,
+      [title, eventType, startsAt, priority, reminderMinutes, caseId, completed ? 'completed' : 'pending', completed ? new Date() : null, eventId, req.user.office_id]
+    );
+    if (!result.affectedRows) return sendError(req, res, { status: 404, code: 'AGENDA_EVENT_NOT_FOUND', message: 'Compromisso nao encontrado.' });
+    const [rows] = await pool.query(
+      `SELECT e.id, e.title, e.event_type, DATE_FORMAT(e.starts_at, '%Y-%m-%dT%H:%i') AS starts_at,
+              e.priority, e.reminder_minutes, e.status, e.completed_at, e.case_id, c.title AS case_title, cl.name AS client_name
+       FROM agenda_events e LEFT JOIN cases c ON c.id = e.case_id LEFT JOIN clients cl ON cl.id = c.client_id WHERE e.id = ?`,
+      [eventId]
+    );
+    sendSuccess(req, res, { data: formatAgendaEvent(rows[0]) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.delete('/api/agenda/:id', requireAuth, requirePermission('createCases'), async (req, res, next) => {
+  try {
+    const eventId = parseUuidParam(req.params.id, 'Compromisso invalido.');
+    const [result] = await pool.query('DELETE FROM agenda_events WHERE id = ? AND office_id = ?', [eventId, req.user.office_id]);
+    if (!result.affectedRows) return sendError(req, res, { status: 404, code: 'AGENDA_EVENT_NOT_FOUND', message: 'Compromisso nao encontrado.' });
+    sendSuccess(req, res, { data: { message: 'Compromisso removido com sucesso.' } });
+  } catch (error) {
+    next(error);
   }
 });
 

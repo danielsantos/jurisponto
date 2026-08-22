@@ -1,0 +1,21 @@
+CREATE TABLE IF NOT EXISTS agenda_events (
+  id CHAR(36) PRIMARY KEY,
+  office_id CHAR(36) NOT NULL,
+  case_id CHAR(36) NULL,
+  created_by_user_id CHAR(36) NULL,
+  title VARCHAR(500) NOT NULL,
+  event_type ENUM('task', 'deadline', 'hearing', 'meeting') NOT NULL DEFAULT 'task',
+  starts_at DATETIME NOT NULL,
+  priority ENUM('low', 'normal', 'high', 'urgent') NOT NULL DEFAULT 'normal',
+  reminder_minutes INT UNSIGNED NULL,
+  status ENUM('pending', 'completed') NOT NULL DEFAULT 'pending',
+  completed_at DATETIME NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT fk_agenda_events_office FOREIGN KEY (office_id) REFERENCES offices(id) ON DELETE CASCADE,
+  CONSTRAINT fk_agenda_events_case FOREIGN KEY (case_id) REFERENCES cases(id) ON DELETE SET NULL,
+  CONSTRAINT fk_agenda_events_creator FOREIGN KEY (created_by_user_id) REFERENCES users(id) ON DELETE SET NULL,
+  INDEX idx_agenda_events_office_time (office_id, starts_at),
+  INDEX idx_agenda_events_case_time (case_id, starts_at),
+  INDEX idx_agenda_events_status_time (office_id, status, starts_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

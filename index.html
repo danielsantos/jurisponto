@@ -26,6 +26,7 @@
         <nav aria-label="Navegacao principal">
           <button class="nav-link active" data-view="dashboard"><span>[]</span> Visao geral</button>
           <button class="nav-link" data-view="cases"><span>#</span> Casos</button>
+          <button class="nav-link" data-view="agenda"><span>o</span> Agenda</button>
           <button class="nav-link" data-view="clients"><span>@</span> Clientes</button>
           <button class="nav-link" data-view="documents"><span>=</span> Documentos <b id="nav-document-count">0</b></button>
           <button class="nav-link" data-view="updates"><span>+</span> Atualizacoes</button>
@@ -87,6 +88,10 @@
               </div>
             </section>
           </div>
+          <section class="panel agenda-preview">
+            <div class="panel-heading"><div><h2>Proximos compromissos</h2><p>Prazos, tarefas, audiencias e reunioes da sua agenda.</p></div><button class="text-button" data-view-target="agenda">Abrir agenda -></button></div>
+            <div id="dashboard-agenda-list" class="agenda-list compact-agenda-list"></div>
+          </section>
           <section class="panel client-portal-panel" id="client-portal-panel" hidden>
             <div class="panel-heading">
               <div>
@@ -130,6 +135,14 @@
         <section id="cases-view" class="view">
           <div class="content-title"><div><p class="eyebrow">GESTAO DE CASOS</p><h1>Casos em andamento</h1><p class="subcopy">Acompanhe documentos, responsaveis e proximos passos.</p></div><button class="new-case" id="new-case-secondary">+ Novo caso</button></div>
           <section class="panel cases-full"><div class="filter-row"><button class="filter selected" data-filter="all">Todos <span>0</span></button><button class="filter" data-filter="analysis">Em analise <span>0</span></button><button class="filter" data-filter="active">Em andamento <span>0</span></button><button class="filter" data-filter="waiting">Aguardando <span>0</span></button><button class="filter" data-filter="closed">Encerrados <span>0</span></button><label class="search"><span>?</span><input id="case-search" placeholder="Buscar cliente, caso ou documento" /></label><label class="inline-select"><span>Responsavel</span><select id="case-responsible-filter"><option value="">Todos</option></select></label><label class="inline-select"><span>Prazo</span><select id="case-due-filter"><option value="">Todos</option><option value="overdue">Atrasados</option><option value="today">Hoje</option><option value="week">Proximos 7 dias</option><option value="none">Sem prazo</option></select></label><label class="inline-select"><span>Arquivo</span><select id="case-archived-filter"><option value="false">Ativos</option><option value="all">Todos</option><option value="true">Arquivados</option></select></label></div><div class="table-wrap"><table><thead><tr><th>CLIENTE</th><th>CASO</th><th>STATUS</th><th>RESPONSAVEL</th><th>PROXIMO PRAZO</th><th></th></tr></thead><tbody id="all-cases-table"></tbody></table></div></section>
+        </section>
+
+        <section id="agenda-view" class="view">
+          <div class="content-title"><div><p class="eyebrow">AGENDA JURIDICA</p><h1>Compromissos e prazos</h1><p class="subcopy">Organize tarefas, prazos, audiencias e reunioes em um so lugar.</p></div><button class="new-case" id="new-agenda-event">+ Novo compromisso</button></div>
+          <section class="panel agenda-panel">
+            <div class="filter-row"><button class="agenda-filter selected" data-agenda-status="pending">Pendentes</button><button class="agenda-filter" data-agenda-status="completed">Concluidos</button><button class="agenda-filter" data-agenda-status="all">Todos</button><label class="inline-select"><span>Tipo</span><select id="agenda-type-filter"><option value="">Todos os tipos</option><option value="task">Tarefa</option><option value="deadline">Prazo</option><option value="hearing">Audiencia</option><option value="meeting">Reuniao</option></select></label></div>
+            <div id="agenda-list" class="agenda-list"></div>
+          </section>
         </section>
 
         <section id="documents-view" class="view">
@@ -243,6 +256,25 @@
           </section>
         </section>
       </main>
+    </div>
+
+    <div class="modal-backdrop" id="agenda-modal-backdrop" hidden>
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="agenda-modal-title">
+        <button class="close-modal" id="close-agenda-modal" aria-label="Fechar">x</button>
+        <p class="eyebrow">AGENDA</p>
+        <h2 id="agenda-modal-title">Novo compromisso</h2>
+        <p>Cadastre um compromisso e associe-o a um caso, se desejar.</p>
+        <form id="agenda-form">
+          <input type="hidden" name="eventId" />
+          <label>Titulo<input required name="title" placeholder="Ex.: Audiencia de conciliacao" /></label>
+          <label>Tipo<select required name="type"><option value="task">Tarefa</option><option value="deadline">Prazo</option><option value="hearing">Audiencia</option><option value="meeting">Reuniao</option></select></label>
+          <label>Data e hora<input required name="startsAt" type="datetime-local" /></label>
+          <label>Prioridade<select name="priority"><option value="low">Baixa</option><option value="normal" selected>Normal</option><option value="high">Alta</option><option value="urgent">Urgente</option></select></label>
+          <label>Lembrete<select name="reminderMinutes"><option value="">Sem lembrete</option><option value="15">15 minutos antes</option><option value="60">1 hora antes</option><option value="1440">1 dia antes</option><option value="10080">1 semana antes</option></select></label>
+          <label>Caso relacionado <small>(opcional)</small><select name="caseId" id="agenda-case-select"><option value="">Nenhum caso</option></select></label>
+          <div class="form-actions"><button class="new-case" type="submit" id="agenda-submit">Salvar compromisso -></button></div>
+        </form>
+      </div>
     </div>
 
     <div class="modal-backdrop" id="modal-backdrop" hidden>
