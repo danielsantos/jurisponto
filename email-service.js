@@ -75,4 +75,14 @@ async function sendPrivacyRequestEmail({ requesterEmail, requesterName, requestT
   });
 }
 
-module.exports = { sendVerificationEmail, sendPasswordResetEmail, sendDocumentRequestEmail, sendPrivacyRequestEmail };
+async function sendNewUserRegistrationEmail({ name, email, office }) {
+  const recipient = process.env.NEW_USER_NOTIFICATION_EMAIL || 'danielsantosr.rj@gmail.com';
+  return deliverEmail({
+    to: recipient,
+    subject: 'Novo cadastro na Rota do Caso',
+    text: `Um novo usuario se cadastrou na Rota do Caso.\n\nNome: ${name}\nE-mail: ${email}\nEscritorio: ${office}`,
+    html: `<p>Um novo usuario se cadastrou na Rota do Caso.</p><p><strong>Nome:</strong> ${escapeHtml(name)}<br /><strong>E-mail:</strong> ${escapeHtml(email)}<br /><strong>Escritorio:</strong> ${escapeHtml(office)}</p>`
+  });
+}
+
+module.exports = { sendVerificationEmail, sendPasswordResetEmail, sendDocumentRequestEmail, sendPrivacyRequestEmail, sendNewUserRegistrationEmail };

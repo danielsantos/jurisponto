@@ -9,7 +9,7 @@ const syncFs = require('fs');
 const multer = require('multer');
 const { createDatabasePool } = require('./database');
 const release = require('./release');
-const { sendVerificationEmail, sendPasswordResetEmail, sendDocumentRequestEmail, sendPrivacyRequestEmail } = require('./email-service');
+const { sendVerificationEmail, sendPasswordResetEmail, sendDocumentRequestEmail, sendPrivacyRequestEmail, sendNewUserRegistrationEmail } = require('./email-service');
 const {
   buildMeta,
   createRequirePermission,
@@ -1247,6 +1247,9 @@ app.post('/api/auth/signup', createAuthRateLimiter({ name: 'signup', maxAttempts
     await db.commit();
 
     const delivery = await sendVerificationEmail({ to: email, name: fullName, code: verificationCode });
+    await sendNewUserRegistrationEmail({ name: fullName, email, office: officeName }).catch((error) => {
+      logEvent('error', 'new_user_registration_notification_failed', buildRequestContext(req), { error: serializeError(error) });
+    });
     sendSuccess(req, res, {
       status: 201,
       data: {

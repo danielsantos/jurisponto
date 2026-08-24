@@ -65,6 +65,8 @@ Os uploads aceitam somente PDF, PNG, JPG, DOC e DOCX de ate 10 MB. Alem do tipo 
 
 Para enviar e-mails reais, configure um dominio e defina `EMAIL_PROVIDER=resend`, `RESEND_API_KEY`, `EMAIL_FROM` e `APP_URL` no ambiente de producao. Enquanto `EMAIL_PROVIDER=development`, a mensagem e o link sao exibidos apenas no log do servidor.
 
+Todo novo cadastro de conta envia um aviso para `NEW_USER_NOTIFICATION_EMAIL` (por padrão, `danielsantosr.rj@gmail.com`). Para que o aviso chegue à caixa de e-mail, mantenha `EMAIL_PROVIDER=resend` configurado no VPS.
+
 ## Observabilidade operacional
 
 O backend agora registra erros em formato estruturado JSON, sempre com contexto minimo de `requestId`, metodo HTTP, rota, `officeId` e `userId` quando disponiveis. As respostas de erro para o cliente continuam sem stack trace.
