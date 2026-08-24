@@ -1319,6 +1319,7 @@ $('#template-apply-modal-backdrop').addEventListener('click', (event) => { if (e
 $('#close-template-apply-modal').addEventListener('click', closeTemplateApplyModal);
 $('#document-note-modal-backdrop').addEventListener('click', (event) => { if (event.target === event.currentTarget) closeDocumentNoteModal(); });
 $('#close-document-note-modal').addEventListener('click', closeDocumentNoteModal);
+$('#logout-confirm-modal-backdrop').addEventListener('click', (event) => { if (event.target === event.currentTarget) closeLogoutConfirmation(); });
 $('#document-note-cancel').addEventListener('click', closeDocumentNoteModal);
 $('#case-client-select').addEventListener('change', updateNewCaseClientFields);
 
@@ -1332,6 +1333,7 @@ document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape' && !$('#template-modal-backdrop').hidden) closeTemplateModal();
   if (event.key === 'Escape' && !$('#template-apply-modal-backdrop').hidden) closeTemplateApplyModal();
   if (event.key === 'Escape' && !$('#document-note-modal-backdrop').hidden) closeDocumentNoteModal();
+  if (event.key === 'Escape' && !$('#logout-confirm-modal-backdrop').hidden) closeLogoutConfirmation();
 });
 
 $('#new-agenda-event').addEventListener('click', () => {
@@ -2264,8 +2266,12 @@ document.addEventListener('click', (event) => {
   button.setAttribute('title', visible ? 'Ocultar senha' : 'Mostrar senha');
   button.textContent = visible ? '◉' : '👁';
 });
-$('#logout-button').addEventListener('click', async (event) => {
-  const button = event.currentTarget;
+function closeLogoutConfirmation() {
+  $('#logout-confirm-modal-backdrop').hidden = true;
+}
+
+async function logout() {
+  const button = $('#confirm-logout');
   button.disabled = true;
   try {
     await api('/api/auth/logout', { method: 'POST' });
@@ -2274,7 +2280,15 @@ $('#logout-button').addEventListener('click', async (event) => {
     button.disabled = false;
     showToast(error.message);
   }
+}
+
+$('#logout-button').addEventListener('click', () => {
+  $('#logout-confirm-modal-backdrop').hidden = false;
+  $('#confirm-logout').focus();
 });
+$('#confirm-logout').addEventListener('click', logout);
+$('#cancel-logout').addEventListener('click', closeLogoutConfirmation);
+$('#close-logout-confirm-modal').addEventListener('click', closeLogoutConfirmation);
 
 (async function boot() {
   try {

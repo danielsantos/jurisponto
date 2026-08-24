@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=logout-3" />
+    <link rel="stylesheet" href="styles.css?v=logout-4" />
     <link rel="stylesheet" href="password-toggle.css" />
   </head>
   <body>
@@ -477,7 +477,20 @@
       </div>
     </div>
 
+    <div class="modal-backdrop" id="logout-confirm-modal-backdrop" hidden>
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="logout-confirm-title" aria-describedby="logout-confirm-description">
+        <button class="close-modal" id="close-logout-confirm-modal" type="button" aria-label="Fechar">x</button>
+        <p class="eyebrow">ENCERRAR SESSAO</p>
+        <h2 id="logout-confirm-title">Deseja realmente sair?</h2>
+        <p id="logout-confirm-description">Voce precisara informar seu e-mail e senha novamente para acessar sua conta.</p>
+        <div class="form-actions">
+          <button class="secondary-button" id="cancel-logout" type="button">Cancelar</button>
+          <button class="danger-button" id="confirm-logout" type="button">Encerrar sessao</button>
+        </div>
+      </div>
+    </div>
+
     <div class="toast" id="toast" role="status"></div>
-    <script src="app.js?v=logout-3"></script>
+    <script src="app.js?v=logout-4"></script>
   </body>
 </html>
