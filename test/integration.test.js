@@ -140,6 +140,14 @@ test('fluxo crítico: cadastro, verificação, recuperação e invalidação de 
   });
   assert.equal(login.status, 200);
   assert.ok(login.cookie);
+
+  const logout = await request('/api/auth/logout', { method: 'POST', cookie: login.cookie });
+  assert.equal(logout.status, 200);
+  assert.equal(logout.body.data.message, 'Sessao encerrada com sucesso.');
+  assert.match(logout.cookie || '', /^rota_do_caso_session=/, 'o logout deve limpar o cookie de sessao');
+
+  const revokedSession = await request('/api/auth/me', { cookie: login.cookie });
+  assert.equal(revokedSession.status, 401, 'uma sessao encerrada nao pode acessar a area autenticada');
 });
 
 test('privacidade: exige aceite, registra solicitações e protege a exportação', async () => {

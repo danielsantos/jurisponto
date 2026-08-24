@@ -2264,9 +2264,16 @@ document.addEventListener('click', (event) => {
   button.setAttribute('title', visible ? 'Ocultar senha' : 'Mostrar senha');
   button.textContent = visible ? '◉' : '👁';
 });
-$('#logout-button').addEventListener('click', async () => {
-  await api('/api/auth/logout', { method: 'POST' });
-  window.location.assign('/');
+$('#logout-button').addEventListener('click', async (event) => {
+  const button = event.currentTarget;
+  button.disabled = true;
+  try {
+    await api('/api/auth/logout', { method: 'POST' });
+    window.location.assign('/');
+  } catch (error) {
+    button.disabled = false;
+    showToast(error.message);
+  }
 });
 
 (async function boot() {
