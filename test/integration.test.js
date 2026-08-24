@@ -116,6 +116,13 @@ test.after(async () => {
   if (pool) await pool.end();
 });
 
+test('versao publicada: endpoint publico identifica a entrega em execucao', async () => {
+  const version = await request('/api/version');
+  assert.equal(version.status, 200);
+  assert.equal(version.body.data.version, require('../release').version);
+  assert.equal(version.body.data.build, require('../release').build);
+});
+
 test('fluxo crítico: cadastro, verificação, recuperação e invalidação de sessão', async () => {
   const account = await createVerifiedOffice('autenticacao');
 

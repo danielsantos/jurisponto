@@ -8,6 +8,7 @@ const fs = require('fs/promises');
 const syncFs = require('fs');
 const multer = require('multer');
 const { createDatabasePool } = require('./database');
+const release = require('./release');
 const { sendVerificationEmail, sendPasswordResetEmail, sendDocumentRequestEmail, sendPrivacyRequestEmail } = require('./email-service');
 const {
   buildMeta,
@@ -1153,6 +1154,11 @@ app.get('/api/health', async (_req, res, next) => {
   } catch (error) {
     next(error);
   }
+});
+
+app.get('/api/version', (req, res) => {
+  res.set('Cache-Control', 'no-store, max-age=0');
+  sendSuccess(req, res, { data: release });
 });
 
 app.post('/api/privacy/requests', createAuthRateLimiter({ name: 'privacy-request', maxAttempts: 5, windowMs: 60 * 60 * 1000 }), async (req, res, next) => {
@@ -4191,6 +4197,7 @@ app.get('/document-upload.js', (_req, res) => res.sendFile(path.join(__dirname, 
 app.get('/privacy.css', (_req, res) => res.sendFile(path.join(__dirname, 'privacy.css')));
 app.get('/privacy-requests.js', (_req, res) => res.sendFile(path.join(__dirname, 'privacy-requests.js')));
 app.get('/app', requireAuth, (_req, res) => res.sendFile(path.join(__dirname, 'index.html')));
+app.get('/versao', sendAppAsset('version.html'));
 app.get('/redefinir-senha', (_req, res) => res.sendFile(path.join(__dirname, 'password-reset.html')));
 app.get('/enviar-documento', (_req, res) => res.sendFile(path.join(__dirname, 'document-upload.html')));
 app.get('/privacidade', (_req, res) => res.sendFile(path.join(__dirname, 'privacy.html')));

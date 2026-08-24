@@ -1,5 +1,9 @@
 # Rota do Caso
 
+## Versao publicada
+
+Antes de cada publicacao, atualize `release.js` (numero da versao, data, identificacao do build e notas). Depois de subir os arquivos no VPS, abra `/versao`: a pagina consulta `GET /api/version` sem cache e mostra a entrega que o servidor esta executando.
+
 Portal para escritorios juridicos organizarem casos, coleta de documentos e comunicacao simples com clientes.
 
 ## Stack inicial
