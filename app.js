@@ -754,7 +754,7 @@ function renderClients() {
         ${client.notes ? `<small class="document-meta">${escapeHtml(client.notes)}</small>` : ''}
       </div>
       <div class="document-actions team-actions">
-        <button class="secondary-button compact-button use-client-in-case" data-client-name="${escapeAttribute(client.name)}">Novo caso</button>
+        <button class="secondary-button compact-button use-client-in-case" data-client-id="${escapeAttribute(safeId(client.id))}">Novo caso</button>
         <button class="secondary-button compact-button edit-client" data-client-id="${escapeAttribute(safeId(client.id))}">Editar</button>
         <button class="secondary-button compact-button danger-button delete-client" data-client-id="${escapeAttribute(safeId(client.id))}">Excluir</button>
       </div>
@@ -1027,6 +1027,28 @@ function populateCaseClientSelect() {
   updateNewCaseClientFields();
 }
 
+function openNewCaseModal(clientId = '') {
+  if (!currentUser?.permissions?.createCases) {
+    showToast('Seu perfil nao pode criar casos.');
+    return;
+  }
+
+  populateResponsibleOptions();
+  populateCaseClientSelect();
+
+  if (clientId) {
+    const clientSelect = $('#case-client-select');
+    if (!Array.from(clientSelect.options).some((option) => option.value === clientId)) {
+      showToast('Este cliente precisa ter um e-mail cadastrado antes de criar um caso.');
+      return;
+    }
+    clientSelect.value = clientId;
+    updateNewCaseClientFields();
+  }
+
+  $('#modal-backdrop').hidden = false;
+}
+
 function populateResponsibleOptions() {
   const options = assignableUsers.map((user) => `<option value="${escapeAttribute(safeId(user.id))}">${escapeHtml(user.name)}</option>`).join('');
 
@@ -1297,17 +1319,11 @@ function parseTemplateItemsInput(text) {
 document.querySelectorAll('[data-view], [data-view-target]').forEach((button) => button.addEventListener('click', () => showView(button.dataset.view || button.dataset.viewTarget)));
 
 $('#new-case').addEventListener('click', () => {
-  if (!currentUser?.permissions?.createCases) return showToast('Seu perfil nao pode criar casos.');
-  populateResponsibleOptions();
-  populateCaseClientSelect();
-  $('#modal-backdrop').hidden = false;
+  openNewCaseModal();
 });
 
 $('#new-case-secondary').addEventListener('click', () => {
-  if (!currentUser?.permissions?.createCases) return showToast('Seu perfil nao pode criar casos.');
-  populateResponsibleOptions();
-  populateCaseClientSelect();
-  $('#modal-backdrop').hidden = false;
+  openNewCaseModal();
 });
 
 $('.close-modal').addEventListener('click', closeCaseModal);
@@ -2135,9 +2151,7 @@ document.addEventListener('click', async (event) => {
   }
 
   if (useClientButton) {
-    $('#case-form').elements.client.value = useClientButton.dataset.clientName || '';
-    populateResponsibleOptions();
-    $('#modal-backdrop').hidden = false;
+    openNewCaseModal(safeId(useClientButton.dataset.clientId));
     return;
   }
 
