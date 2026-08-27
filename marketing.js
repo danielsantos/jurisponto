@@ -4,6 +4,27 @@ const loginForm = document.querySelector('#login-form');
 const success = document.querySelector('.auth-success');
 let pendingVerificationEmail = sessionStorage.getItem('rota_do_caso_pending_verification_email') || '';
 
+const signupSubmit = signupForm.querySelector('[type="submit"]');
+const signupTrialHighlight = document.createElement('div');
+signupTrialHighlight.setAttribute('aria-label', '14 dias grátis, sem cartão de crédito');
+signupTrialHighlight.innerHTML = '<strong>14 dias grátis</strong><span>Sem cartão de crédito</span>';
+Object.assign(signupTrialHighlight.style, {
+  alignItems: 'center',
+  background: '#fff6e3',
+  border: '1px solid #efd7a6',
+  borderRadius: '6px',
+  color: '#7c8797',
+  display: 'flex',
+  fontSize: '10px',
+  gap: '12px',
+  justifyContent: 'space-between',
+  padding: '9px 11px'
+});
+signupTrialHighlight.querySelector('strong').style.cssText = 'color:#9b6c17;font-size:11px';
+signupSubmit.textContent = 'Começar 14 dias grátis →';
+signupSubmit.style.marginTop = '0';
+signupSubmit.insertAdjacentElement('beforebegin', signupTrialHighlight);
+
 function openModal(view) {
   modal.hidden = false;
   signupForm.hidden = view !== 'signup';
@@ -212,7 +233,7 @@ signupForm.querySelector('form').addEventListener('submit', async (event) => {
     showFormError(signupForm, exception.message);
   } finally {
     submit.disabled = false;
-    submit.textContent = 'Comecar meu teste gratis ->';
+    submit.textContent = 'Começar 14 dias grátis →';
   }
 });
 
