@@ -88,6 +88,15 @@ function safeId(value) {
   return /^[0-9a-f-]{36}$/i.test(String(value || '')) ? value : '';
 }
 
+function formatPhone(value) {
+  const digits = String(value || '').replace(/\D/g, '');
+  if (digits.length === 0) return '';
+  if (digits.length > 11) return digits;
+  if (digits.length <= 2) return `(${digits}`;
+  if (digits.length <= 7) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+  return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+}
+
 function showToast(message) {
   const toast = $('#toast');
   toast.textContent = message;
@@ -709,7 +718,7 @@ function startEditingClient(clientId) {
   form.elements.clientId.value = client.id;
   form.elements.name.value = client.name || '';
   form.elements.email.value = client.email || '';
-  form.elements.phone.value = client.phone || '';
+  form.elements.phone.value = formatPhone(client.phone);
   form.elements.documentId.value = client.documentId || '';
   form.elements.notes.value = client.notes || '';
   $('#client-submit').textContent = 'Salvar alteracoes ->';
@@ -736,7 +745,7 @@ function renderClients() {
       <span class="doc-icon">${escapeHtml(initials(client.name))}</span>
       <div class="document-copy">
         <h3>${escapeHtml(client.name)}</h3>
-        <p>${escapeHtml(client.email || 'Sem e-mail')} · ${escapeHtml(client.phone || 'Sem telefone')}</p>
+        <p>${escapeHtml(client.email || 'Sem e-mail')} · ${escapeHtml(client.phone ? formatPhone(client.phone) : 'Sem telefone')}</p>
         <div class="client-card-meta">
           <span class="client-chip">${client.caseCount} caso${client.caseCount === 1 ? '' : 's'}</span>
           <span class="client-chip">${client.activeCaseCount} ativo${client.activeCaseCount === 1 ? '' : 's'}</span>
@@ -1796,6 +1805,10 @@ $('#client-cancel').addEventListener('click', () => {
 
 $('#client-search').addEventListener('input', async () => {
   await loadClients();
+});
+
+$('#client-form').elements.phone.addEventListener('input', (event) => {
+  event.target.value = formatPhone(event.target.value.replace(/\D/g, '').slice(0, 11));
 });
 
 $('#client-form').addEventListener('submit', async (event) => {

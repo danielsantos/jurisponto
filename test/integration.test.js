@@ -186,6 +186,7 @@ test('fluxo crítico: isolamento de escritórios, documentos e financeiro', asyn
     body: { name: 'Cliente de teste', email: 'cliente.teste@example.test', phone: '+55 11 99999-9999' }
   });
   assert.equal(client.status, 201);
+  assert.equal(client.body.data.phone, '5511999999999');
 
   const caseResponse = await request('/api/cases', {
     method: 'POST', cookie: officeA.cookie,

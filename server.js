@@ -343,7 +343,7 @@ function parseOptionalPhone(value) {
   if (!phonePattern.test(normalized)) {
     throw new Error('Informe um telefone valido.');
   }
-  return normalized;
+  return normalized.replace(/\D/g, '');
 }
 
 function parseOptionalDocumentId(value) {
