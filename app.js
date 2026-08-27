@@ -1015,8 +1015,9 @@ function updateNewCaseClientFields() {
   $('#new-case-client-fields').hidden = !isNewClient;
   form.elements.clientName.required = isNewClient;
   form.elements.clientEmail.required = isNewClient;
+  form.elements.clientPhone.required = isNewClient;
   $('#case-client-helper').textContent = isNewClient
-    ? 'Informe um e-mail válido: é para ele que serão enviados os links seguros de documentos.'
+    ? 'Informe e-mail e celular (WhatsApp): eles serão usados nas comunicações e no envio de documentos.'
     : 'Selecione um cliente com e-mail para que ele possa receber documentos.';
 }
 
@@ -1326,7 +1327,7 @@ $('#new-case-secondary').addEventListener('click', () => {
   openNewCaseModal();
 });
 
-$('.close-modal').addEventListener('click', closeCaseModal);
+$('#close-case-modal').addEventListener('click', closeCaseModal);
 $('#modal-backdrop').addEventListener('click', (event) => { if (event.target === event.currentTarget) closeCaseModal(); });
 $('#document-modal-backdrop').addEventListener('click', (event) => { if (event.target === event.currentTarget) closeDocumentModal(); });
 $('#close-document-modal').addEventListener('click', closeDocumentModal);
@@ -1458,6 +1459,7 @@ $('#case-form').addEventListener('submit', async (event) => {
         clientId: data.get('clientId') === '__new__' ? '' : data.get('clientId'),
         clientName: data.get('clientName'),
         clientEmail: data.get('clientEmail'),
+        clientPhone: data.get('clientPhone'),
         title: data.get('title'),
         dueDate: data.get('due'),
         responsibleUserId: data.get('responsibleUserId'),
@@ -1823,9 +1825,9 @@ $('#client-search').addEventListener('input', async () => {
   await loadClients();
 });
 
-$('#client-form').elements.phone.addEventListener('input', (event) => {
+document.querySelectorAll('[data-phone-mask]').forEach((field) => field.addEventListener('input', (event) => {
   event.target.value = formatPhone(event.target.value.replace(/\D/g, '').slice(0, 11));
-});
+}));
 
 $('#client-form').addEventListener('submit', async (event) => {
   event.preventDefault();

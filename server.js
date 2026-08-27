@@ -337,6 +337,12 @@ function parseOptionalEmail(value) {
   return normalized;
 }
 
+function parseRequiredEmail(value) {
+  const email = parseOptionalEmail(value);
+  if (!email) throw new Error('Informe o e-mail do cliente.');
+  return email;
+}
+
 function parseOptionalPhone(value) {
   if (value == null || value === '') return null;
   const normalized = sanitizeTextInput(value, 40);
@@ -344,6 +350,12 @@ function parseOptionalPhone(value) {
     throw new Error('Informe um telefone valido.');
   }
   return normalized.replace(/\D/g, '');
+}
+
+function parseRequiredPhone(value) {
+  const phone = parseOptionalPhone(value);
+  if (!phone) throw new Error('Informe o celular (WhatsApp) do cliente.');
+  return phone;
 }
 
 function parseOptionalDocumentId(value) {
@@ -653,12 +665,12 @@ async function ensureUploadsDirectory() {
   }
 }
 
-async function upsertClient(db, officeId, clientName, clientEmail = null) {
+async function upsertClient(db, officeId, clientName, clientEmail = null, clientPhone = null) {
   if (!clientName) return null;
   await db.query(
-    `INSERT INTO clients (id, office_id, name, email) VALUES (UUID(), ?, ?, ?)
-     ON DUPLICATE KEY UPDATE name = VALUES(name), email = COALESCE(clients.email, VALUES(email))`,
-    [officeId, clientName, clientEmail]
+    `INSERT INTO clients (id, office_id, name, email, phone) VALUES (UUID(), ?, ?, ?, ?)
+     ON DUPLICATE KEY UPDATE name = VALUES(name), email = COALESCE(clients.email, VALUES(email)), phone = COALESCE(clients.phone, VALUES(phone))`,
+    [officeId, clientName, clientEmail, clientPhone]
   );
 
   const [clientRows] = await db.query(
@@ -1764,8 +1776,8 @@ app.post('/api/clients', requireAuth, requirePermission('createCases'), async (r
   let notes;
   try {
     name = parseRequiredText(req.body.name, 'Informe o nome do cliente.', { min: 2, max: 255 });
-    email = parseOptionalEmail(req.body.email);
-    phone = parseOptionalPhone(req.body.phone);
+    email = parseRequiredEmail(req.body.email);
+    phone = parseRequiredPhone(req.body.phone);
     documentId = parseOptionalDocumentId(req.body.documentId);
     notes = sanitizeTextInput(req.body.notes, 5000) || '';
   } catch (error) {
@@ -1812,8 +1824,8 @@ app.patch('/api/clients/:id', requireAuth, requirePermission('createCases'), asy
   try {
     clientId = parseUuidParam(req.params.id, 'Cliente invalido.');
     name = parseRequiredText(req.body.name, 'Informe o nome do cliente.', { min: 2, max: 255 });
-    email = parseOptionalEmail(req.body.email);
-    phone = parseOptionalPhone(req.body.phone);
+    email = parseRequiredEmail(req.body.email);
+    phone = parseRequiredPhone(req.body.phone);
     documentId = parseOptionalDocumentId(req.body.documentId);
     notes = sanitizeTextInput(req.body.notes, 5000) || '';
   } catch (error) {
@@ -2079,6 +2091,7 @@ app.post('/api/cases', requireAuth, requirePermission('createCases'), async (req
   let clientId;
   let clientName;
   let clientEmail;
+  let clientPhone;
   let title;
   let dueDate;
   let responsibleUserId;
@@ -2093,7 +2106,8 @@ app.post('/api/cases', requireAuth, requirePermission('createCases'), async (req
     clientEmail = normalizeEmail(req.body.clientEmail);
     if (!clientId) {
       clientName = parseRequiredText(clientName, 'Selecione um cliente ou informe o nome de um novo cliente.', { min: 2, max: 255 });
-      if (!isValidEmail(clientEmail)) throw new Error('Informe um e-mail valido para o novo cliente.');
+      clientEmail = parseRequiredEmail(clientEmail);
+      clientPhone = parseRequiredPhone(req.body.clientPhone);
     }
     title = parseRequiredText(req.body.title, 'Informe o titulo do caso.', { min: 2, max: 500 });
     dueDate = parseOptionalDate(req.body.dueDate);
@@ -2130,7 +2144,7 @@ app.post('/api/cases', requireAuth, requirePermission('createCases'), async (req
         return sendError(req, res, { status: 400, code: 'CLIENT_EMAIL_REQUIRED', message: 'O cliente selecionado nao possui e-mail. Atualize o cadastro antes de criar o caso.' });
       }
     } else {
-      client = await upsertClient(db, req.user.office_id, clientName, clientEmail);
+      client = await upsertClient(db, req.user.office_id, clientName, clientEmail, clientPhone);
     }
     await assertResponsibleUser(db, req.user.office_id, responsibleUserId);
     const [[caseIdResult]] = await db.query('SELECT UUID() AS id');

@@ -197,8 +197,8 @@
                 <form id="client-form" class="team-form">
                   <input type="hidden" name="clientId" />
                   <label>Nome completo<input required name="name" placeholder="Ex.: Juliana Ferreira" /></label>
-                  <label>E-mail<input name="email" type="email" placeholder="Ex.: juliana@email.com" /></label>
-                  <label>Telefone<input name="phone" type="tel" inputmode="numeric" maxlength="15" placeholder="Ex.: (11) 99999-9999" /></label>
+                  <label>E-mail<input required name="email" type="email" placeholder="Ex.: juliana@email.com" /></label>
+                  <label>Celular (WhatsApp)<input required name="phone" type="tel" inputmode="numeric" maxlength="15" data-phone-mask placeholder="Ex.: (11) 99999-9999" /></label>
                   <label>CPF/CNPJ ou documento<input name="documentId" placeholder="Ex.: 123.456.789-00" /></label>
                   <label>Observacoes internas<textarea name="notes" rows="4" placeholder="Informacoes de contexto, preferencia de contato, observacoes relevantes."></textarea></label>
                   <div class="form-actions">
@@ -338,7 +338,7 @@
 
     <div class="modal-backdrop" id="modal-backdrop" hidden>
       <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
-        <button class="close-modal" aria-label="Fechar">x</button>
+        <button class="close-modal" id="close-case-modal" type="button" aria-label="Fechar">x</button>
         <p class="eyebrow">NOVO CASO</p>
         <h2 id="modal-title">Comece um novo acompanhamento</h2>
         <p>Crie o caso e envie uma checklist ao cliente em seguida.</p>
@@ -348,6 +348,7 @@
           <div id="new-case-client-fields" hidden>
             <label>Nome do novo cliente<input name="clientName" placeholder="Ex.: Juliana Ferreira" /></label>
             <label>E-mail para documentos<input name="clientEmail" type="email" placeholder="Ex.: juliana@email.com" /></label>
+            <label>Celular (WhatsApp)<input name="clientPhone" type="tel" inputmode="numeric" maxlength="15" data-phone-mask placeholder="Ex.: (11) 99999-9999" /></label>
           </div>
           <label>Titulo do caso<input required name="title" placeholder="Ex.: Revisao de contrato" /></label>
           <label>Area juridica<input name="legalArea" placeholder="Ex.: Familia, Trabalhista, Civel" /></label>
