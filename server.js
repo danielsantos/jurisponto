@@ -1405,7 +1405,7 @@ app.post('/api/auth/resend-verification', createAuthRateLimiter({ name: 'resend-
 
 app.post('/api/auth/request-password-reset', createAuthRateLimiter({ name: 'request-password-reset', maxAttempts: 5, windowMs: 15 * 60 * 1000 }), async (req, res, next) => {
   const email = normalizeEmail(req.body.email);
-  const genericResponse = { message: 'Se houver uma conta com este e-mail, enviaremos um codigo de redefinicao.' };
+  const genericResponse = { message: 'Se houver uma conta com este e-mail, enviaremos um código de redefinição.' };
   if (!isValidEmail(email)) {
     return sendError(req, res, {
       status: 400,
@@ -1909,7 +1909,7 @@ app.delete('/api/clients/:id', requireAuth, requirePermission('createCases'), as
       return sendError(req, res, {
         status: 400,
         code: 'CLIENT_IN_USE',
-        message: 'Este cliente ainda possui casos ou acessos vinculados e nao pode ser removido.'
+        message: 'Este cliente ainda possui casos ou acessos vinculados e não pode ser removido.'
       });
     }
 
