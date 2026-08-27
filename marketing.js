@@ -6,6 +6,7 @@ let pendingVerificationEmail = sessionStorage.getItem('rota_do_caso_pending_veri
 
 const signupSubmit = signupForm.querySelector('[type="submit"]');
 const signupTrialHighlight = document.createElement('div');
+signupForm.querySelector('.overline').remove();
 signupTrialHighlight.setAttribute('aria-label', '14 dias grátis, sem cartão de crédito');
 signupTrialHighlight.innerHTML = '<strong>14 dias grátis</strong><span>Sem cartão de crédito</span>';
 Object.assign(signupTrialHighlight.style, {
