@@ -217,13 +217,13 @@ test('fluxo crítico: isolamento de escritórios, documentos e financeiro', asyn
 
   const financial = await request('/api/financial', {
     method: 'POST', cookie: officeA.cookie,
-    body: { description: 'Honorários', type: 'income', amount: '1500,00', dueDate: '2026-12-31', installments: 2, clientId: client.body.data.id, caseId: caseResponse.body.data.id }
+    body: { description: 'Honorários', type: 'income', amount: '1500,00', dueDate: '2026-12-31', installments: 13, clientId: client.body.data.id, caseId: caseResponse.body.data.id }
   });
   assert.equal(financial.status, 201);
-  assert.equal(financial.body.data.length, 2);
+  assert.equal(financial.body.data.length, 13);
   const ownEntries = await request('/api/financial', { cookie: officeA.cookie });
   assert.equal(ownEntries.status, 200);
-  assert.equal(ownEntries.body.data.length, 2);
+  assert.equal(ownEntries.body.data.length, 13);
   const foreignEntries = await request('/api/financial', { cookie: officeB.cookie });
   assert.equal(foreignEntries.status, 200);
   assert.equal(foreignEntries.body.data.length, 0);

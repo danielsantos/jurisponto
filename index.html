@@ -319,7 +319,7 @@
       <div class="modal" role="dialog" aria-modal="true" aria-labelledby="finance-modal-title">
         <button class="close-modal" id="close-finance-modal" aria-label="Fechar">x</button>
         <p class="eyebrow">FINANCEIRO</p>
-        <h2 id="finance-modal-title">Novo lancamento</h2>
+        <h2 id="finance-modal-title">Novo lançamento</h2>
         <p>Registre receitas de honorarios ou despesas do escritorio.</p>
         <form id="finance-form">
           <input type="hidden" name="entryId" />
@@ -327,7 +327,7 @@
           <label>Tipo<select required name="type"><option value="income">Receita / honorario</option><option value="expense">Despesa</option></select></label>
           <label>Valor de cada parcela<input required name="amount" type="number" min="0.01" step="0.01" placeholder="0,00" /></label>
           <label>Vencimento<input required name="dueDate" type="date" /></label>
-          <label id="finance-installments-field">Parcelas<select name="installments"><option value="1">Parcela unica</option><option value="2">2 parcelas</option><option value="3">3 parcelas</option><option value="4">4 parcelas</option><option value="6">6 parcelas</option><option value="12">12 parcelas</option></select></label>
+          <label id="finance-installments-field">Parcelas<input required name="installments" type="number" min="1" step="1" value="1" inputmode="numeric" /></label>
           <label>Situacao<select name="status"><option value="pending">Pendente</option><option value="paid">Pago</option></select></label>
           <label>Cliente <small>(opcional)</small><select name="clientId" id="finance-client-select"><option value="">Nenhum cliente</option></select></label>
           <label>Caso relacionado <small>(opcional)</small><select name="caseId" id="finance-case-select"><option value="">Nenhum caso</option></select></label>

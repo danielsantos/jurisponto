@@ -440,9 +440,10 @@ function parseFinancialAmount(value) {
 }
 
 function parseFinancialInstallments(value) {
-  const installments = Number.parseInt(String(value ?? '1'), 10);
-  if (!Number.isInteger(installments) || installments < 1 || installments > 120) {
-    throw new Error('Informe entre 1 e 120 parcelas.');
+  const normalized = String(value ?? '1').trim();
+  const installments = Number(normalized);
+  if (!/^[1-9]\d*$/.test(normalized) || !Number.isSafeInteger(installments) || installments > 65535) {
+    throw new Error('Informe uma quantidade de parcelas entre 1 e 65535.');
   }
   return installments;
 }

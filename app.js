@@ -900,7 +900,7 @@ function closeFinanceModal() {
   $('#finance-modal-backdrop').hidden = true;
   $('#finance-form').reset();
   $('#finance-form').elements.entryId.value = '';
-  $('#finance-modal-title').textContent = 'Novo lancamento';
+  $('#finance-modal-title').textContent = 'Novo lançamento';
   $('#finance-submit').textContent = 'Salvar lancamento ->';
   $('#finance-installments-field').hidden = false;
 }
@@ -920,7 +920,7 @@ function openFinanceModal(entryId = '') {
   form.elements.status.value = entry?.status || 'pending';
   form.elements.clientId.value = entry?.clientId || '';
   form.elements.caseId.value = entry?.caseId || '';
-  $('#finance-modal-title').textContent = entry ? 'Editar lancamento' : 'Novo lancamento';
+  $('#finance-modal-title').textContent = entry ? 'Editar lançamento' : 'Novo lançamento';
   $('#finance-submit').textContent = entry ? 'Salvar alteracoes ->' : 'Salvar lancamento ->';
   $('#finance-installments-field').hidden = Boolean(entry);
   $('#finance-modal-backdrop').hidden = false;
