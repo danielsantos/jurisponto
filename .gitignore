@@ -4,3 +4,6 @@ node_modules/
 npm-debug.log*
 uploads/
 logs/
+
+# Site da Alina Gregório: não pertence ao Rota do Caso e não deve ser publicado daqui.
+assets/alina-gregorio.jpg
